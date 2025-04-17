@@ -14,14 +14,14 @@
 
 ## ✨ 主な機能
 
-| # | 機能          | 説明                                                             |
-|---|---------------|----------------------------------------------------------------|
-| 1 | PDF アップロード    | ブラウザ UI から複数 PDF を選択し、Cloud Storage に直接アップロード (Signed URL) |
-| 2 | ZIP アップロード    | 複数 PDF を含む ZIP ファイルをアップロードし、自動展開・一括変換                 |
-| 3 | 非同期変換ジョブ | Cloud Tasks → Cloud Run ワーカー。`pypdfium2` でページ並列レンダリング          |
-| 4 | ストリーミング ZIP   | 画像生成と同時に ZIP 書き込み。完了後に署名付き DL URL 発行             |
-| 5 | 進捗通知      | Server‑Sent Events (SSE) でリアルタイム進捗バー更新                       |
-| 6 | 自動クリーンアップ   | ZIP と元 PDF を Cloud Storage Lifecycle (24 h) で自動削除           |
+| # | 機能           | 説明                                                                       |
+|---|----------------|--------------------------------------------------------------------------|
+| 1 | PDF アップロード     | ブラウザ UI から複数 PDF を選択し、Cloud Storage に直接アップロード (Signed URL)           |
+| 2 | ZIP アップロード     | 複数 PDF を含む ZIP ファイルをアップロードし、自動展開・一括変換                           |
+| 3 | 非同期変換ジョブ  | Cloud Tasks → Cloud Run ワーカー。`pypdfium2` でページ並列レンダリング                    |
+| 4 | ストリーミング ZIP    | 画像生成と同時に ZIP 書き込み。完了後に署名付き DL URL 発行                       |
+| 5 | リアルタイム進捗通知 | Server‑Sent Events (SSE) でリアルタイム進捗バー更新。FastAPI StreamingResponse を使用 |
+| 6 | 自動クリーンアップ    | ZIP と元 PDF を Cloud Storage Lifecycle (24 h) で自動削除                     |
 
 ---
 
@@ -71,7 +71,7 @@
 | Method | Path                 | 説明                                                               |
 |--------|----------------------|------------------------------------------------------------------|
 | `POST` | `/upload-url`        | 署名付き PUT URL (PDF/ZIP 用) を返す。Body: `filename`, `content_type` |
-| `GET`  | `/status/{job_id}`   | JSON でジョブ進捗を返す (SSE 併用可)                                     |
+| `GET`  | `/status/{job_id}`   | SSE でジョブ進捗をリアルタイムに返す。`text/event-stream` 形式で配信              |
 | `GET`  | `/download/{job_id}` | 署名付き ZIP ダウンロード URL を返す                                        |
 
 ---

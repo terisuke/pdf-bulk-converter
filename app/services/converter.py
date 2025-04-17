@@ -87,15 +87,15 @@ def _convert_page(
     """
     # ページをレンダリング
     bitmap = page.render(
-        scale=dpi/72,  # PDFiumは72 DPIを基準とする
-        format=pdfium.BitmapConv.pil_image
+        scale=dpi/72  # PDFiumは72 DPIを基準とする
     )
+    pil_image = bitmap.to_pil()
     
     # 画像を保存
     output_path = os.path.join(
         output_dir,
         f"page_{page_idx + 1:04d}.{format}"
     )
-    bitmap.save(output_path, format=format.upper())
+    pil_image.save(output_path, format=format.upper())
     
-    return output_path 
+    return output_path        

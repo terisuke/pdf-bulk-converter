@@ -46,11 +46,79 @@ document.addEventListener('DOMContentLoaded', () => {
             // ファイルをアップロード
             const formData = new FormData();
             formData.append('file', file);
+            formData.append('dpi', dpi);
+            formData.append('format', format);
 
-            await fetch(upload_url, {
-                method: 'PUT',
-                body: formData
-            });
+            const fullUrl = upload_url.startsWith('/') ? 
+                window.location.origin + upload_url : upload_url;
+            
+            console.log('Uploading to URL:', fullUrl);
+            console.log('FormData contents:', Array.from(formData.entries()));
+                
+            try {
+                console.log('Starting fetch to:', fullUrl);
+                console.log('With method:', 'POST');
+                console.log('With body:', formData);
+                
+                const uploadResponse = await fetch(fullUrl, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                console.log('Upload response received:', uploadResponse);
+                console.log('Response status:', uploadResponse.status);
+                console.log('Response ok:', uploadResponse.ok);
+                
+                if (!uploadResponse.ok) {
+                    throw new Error(`Upload failed with status: ${uploadResponse.status}`);
+                }
+                
+                // 進捗表示を開始
+                progressDiv.classList.remove('hidden');
+                progressText.textContent = 'アップロード完了、変換処理中...';
+                
+                try {
+                    console.log('Parsing response as JSON...');
+                    const responseData = await uploadResponse.json();
+                    console.log('Upload response data:', responseData);
+                    
+                    if (responseData && responseData.message && responseData.message.includes('successfully')) {
+                        console.log('Conversion completed successfully');
+                        
+                        await new Promise(resolve => setTimeout(resolve, 2000));
+                        
+                        try {
+                            console.log('Getting download URL for job:', currentJobId);
+                            const downloadResponse = await fetch(`/api/download/${currentJobId}`);
+                            console.log('Download response:', downloadResponse);
+                            
+                            if (downloadResponse.ok) {
+                                const downloadData = await downloadResponse.json();
+                                console.log('Download data:', downloadData);
+                                
+                                downloadLink.href = downloadData.download_url;
+                                progressDiv.classList.add('hidden');
+                                resultDiv.classList.remove('hidden');
+                            } else {
+                                console.error('Failed to get download URL');
+                                progressText.textContent = '変換は完了しましたが、ダウンロードURLの取得に失敗しました。';
+                            }
+                        } catch (downloadError) {
+                            console.error('Download error:', downloadError);
+                            progressText.textContent = '変換は完了しましたが、ダウンロードURLの取得に失敗しました。';
+                        }
+                    }
+                } catch (parseError) {
+                    console.error('Error parsing response:', parseError);
+                }
+            } catch (uploadError) {
+                console.error('Upload error details:', uploadError);
+                console.error('Error name:', uploadError.name);
+                console.error('Error message:', uploadError.message);
+                console.error('Error stack:', uploadError.stack);
+                alert('アップロードエラー: ' + uploadError.message);
+                throw uploadError;
+            }
 
             // 進捗表示を開始
             progressDiv.classList.remove('hidden');
@@ -93,12 +161,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function showResult() {
         try {
+            console.log('Getting download URL for job:', currentJobId);
             const response = await fetch(`/api/download/${currentJobId}`);
+            console.log('Download URL response:', response);
+            
             if (!response.ok) {
                 throw new Error('ダウンロードURLの取得に失敗しました');
             }
 
-            const { download_url } = await response.json();
+            const data = await response.json();
+            console.log('Download URL data:', data);
+            
+            const download_url = data.download_url;
+            console.log('Setting download link to:', download_url);
+            
             downloadLink.href = download_url;
             
             progressDiv.classList.add('hidden');
@@ -108,4 +184,4 @@ document.addEventListener('DOMContentLoaded', () => {
             alert('エラーが発生しました: ' + error.message);
         }
     }
-}); 
+});                    

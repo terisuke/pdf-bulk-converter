@@ -9,6 +9,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 # アプリケーションコードのコピー
 COPY app/ ./app/
 
+# テンプレートとスタティックファイルのコピー
+COPY templates/ ./templates/
+COPY static/ ./static/
+
 # 環境変数の設定
 ENV PYTHONPATH=/app
 

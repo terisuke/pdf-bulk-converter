@@ -1,9 +1,9 @@
-from google.cloud import storage
 from app.core.config import get_settings
 import uuid
 import os
 import shutil
 from pathlib import Path
+# from google.cloud import storage  # GCP環境で使用する場合はコメントを外す
 
 settings = get_settings()
 
@@ -14,7 +14,7 @@ if settings.environment == "local":
 # else:
 #     client = storage.Client()
 
-def generate_upload_url(filename: str, content_type: str = None) -> tuple[str, str]:
+def generate_upload_url(filename: str, content_type: str = "") -> tuple[str, str]:
     """署名付きアップロードURLを生成（ローカルモードでは一時的なアップロードパスを返す）"""
     job_id = str(uuid.uuid4())
     
@@ -72,4 +72,4 @@ def cleanup_job(job_id: str):
             shutil.rmtree(job_path)
     # else:
     #     # クラウドモードのクリーンアップはCloud Storageのライフサイクルポリシーに任せる
-    #     pass 
+    #     pass    

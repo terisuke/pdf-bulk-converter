@@ -19,7 +19,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const dpi = document.getElementById('dpi').value;
-        const format = document.getElementById('format').value;
 
         try {
             // アップロードURLを取得
@@ -32,7 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     filename: file.name,
                     content_type: file.type,
                     dpi: parseInt(dpi),
-                    format: format
+                    format: "jpeg"  // 常にJPEG
                 })
             });
 
@@ -47,7 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const formData = new FormData();
             formData.append('file', file);
             formData.append('dpi', dpi);
-            formData.append('format', format);
+            formData.append('format', 'jpeg');  // 常にJPEG
 
             const fullUrl = upload_url.startsWith('/') ? 
                 window.location.origin + upload_url : upload_url;

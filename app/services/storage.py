@@ -20,10 +20,12 @@ def generate_upload_url(filename: str, content_type: str = "") -> tuple[str, str
     
     if settings.environment == "local":
         # ローカルモード: 一時的なアップロードパスを返す
-        # ローカルモードではcontent_typeは無視
+        # ファイル名をURLエンコード
+        from urllib.parse import quote
+        encoded_filename = quote(filename)
         upload_path = os.path.join(settings.get_storage_path(job_id), filename)
         os.makedirs(os.path.dirname(upload_path), exist_ok=True)
-        return f"/local-upload/{job_id}/{filename}", job_id
+        return f"/local-upload/{job_id}/{encoded_filename}", job_id
     # else:
     #     # クラウドモード: 署名付きURLを生成
     #     if not content_type:
@@ -41,14 +43,21 @@ def generate_upload_url(filename: str, content_type: str = "") -> tuple[str, str
     #     
     #     return url, job_id
     # 開発中はローカルモードのみ対応
-    return f"/local-upload/{job_id}/{filename}", job_id
+    return f"/local-upload/{job_id}/{encoded_filename}", job_id
 
 def generate_download_url(job_id: str) -> str:
     """ダウンロードURLを生成（ローカルモードでは一時的なダウンロードパスを返す）"""
     if settings.environment == "local":
         # ローカルモード: 一時的なダウンロードパスを返す
-        download_path = os.path.join(settings.get_storage_path(job_id), "output.zip")
-        return f"/local-download/{job_id}/output.zip"
+        storage_path = settings.get_storage_path(job_id)
+        zip_files = [f for f in os.listdir(storage_path) if f.endswith("_images.zip")]
+        if not zip_files:
+            raise ValueError("ZIP file not found")
+        
+        # URLエンコードされたファイル名を使用
+        from urllib.parse import quote
+        encoded_filename = quote(zip_files[0])
+        return f"/local-download/{job_id}/{encoded_filename}"
     # else:
     #     # クラウドモード: 署名付きURLを生成
     #     bucket = client.bucket(settings.bucket_zip)

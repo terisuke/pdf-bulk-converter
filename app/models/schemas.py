@@ -17,6 +17,7 @@ class JobStatus(BaseModel):
     created_at: datetime
     completed_at: Optional[datetime] = None
     error: Optional[str] = None
+    message: Optional[str] = None
 
 class DownloadResponse(BaseModel):
     download_url: str

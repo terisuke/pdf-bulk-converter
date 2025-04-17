@@ -162,6 +162,10 @@ $ uvicorn app.main:app --reload
 - ✅ エラーハンドリングの強化
   - 詳細なエラーメッセージ
   - ログ出力の改善
+- ✅ Cloud Runへのデプロイ完了
+  - アプリケーションURL: https://pdf-bulk-converter-513507930971.asia-northeast1.run.app
+  - リージョン: asia-northeast1
+  - ステータス: 正常稼働中
 
 ---
 

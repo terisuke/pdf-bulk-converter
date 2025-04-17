@@ -34,12 +34,36 @@
   * Cloud Run (コンテナ) / Cloud Tasks (キュー) / Cloud Scheduler (Cleanup)  
   * Cloud Storage (アップロード／ZIP 保存)
 * **Frontend**  
+  * Node.js + npm
   * Vanilla JavaScript + HTML5  
   * Fetch API (signed URL PUT) / EventSource (SSE)  
   * Tailwind CSS (簡易 UI)
 * **CI/CD**  
   * GitHub Actions → Cloud Build → Cloud Run deploy  
   * Terraform (オプション) でインフラ定義
+
+---
+
+## 📁 プロジェクト構造
+
+```
+pdf-bulk-converter/
+├── app/                    # バックエンドアプリケーション
+├── static/                 # 静的ファイル（CSS, JS, 画像）
+├── templates/              # HTMLテンプレート
+├── tests/                  # テストコード
+├── local_storage/          # ローカル開発用ストレージ
+├── .env                    # 環境変数
+├── .env.example           # 環境変数テンプレート
+├── .gitignore             # Git除外設定
+├── Dockerfile             # コンテナビルド設定
+├── package.json           # フロントエンド依存関係
+├── requirements.txt       # バックエンド依存関係
+├── run_test.py           # テスト実行スクリプト
+├── issue_summary.md      # 課題管理
+├── directorystructure.md # ディレクトリ構造ドキュメント
+└── technologystack.md    # 技術スタックドキュメント
+```
 
 ---
 
@@ -85,19 +109,20 @@ $ cd pdf-bulk-converter
 $ git init
 # GitHub へリポジトリを作成 & remote 設定 (GitHub CLI 利用例)
 $ gh repo create pdf-bulk-converter --public --source=. --remote=origin -y
-```
 
-
-```bash
-# 0. 前提: gcloud CLI, Docker, GitHub Actions 設定済み
-# 1. レポジトリを clone
-$ git clone https://github.com/your-org/pdf-bulk-converter.git
+# 1. 依存関係のインストール
+$ python -m venv venv
+$ source venv/bin/activate  # Windows: venv\Scripts\activate
+$ pip install -r requirements.txt
+$ npm install
 
 # 2. 環境変数を設定
 $ cp .env.example .env
 $ vi .env  # GCP プロジェクト ID / バケット名など
 
-# 3. ローカルビルド & 実行
+# 3. ローカル開発サーバー起動
+$ python run_test.py  # テストモード
+# または
 $ docker build -t pdf-converter .
 $ docker run -p 8080:8080 --env-file .env pdf-converter
 
@@ -144,12 +169,6 @@ $ gcloud run deploy pdf-converter \
 
 ソフトウェアコード: **MIT License**  
 PDF レンダリング: **pypdfium2** (Apache‑2.0 / BSD‑3) & PDFium (BSD)
-
----
-
-## 🙏 Contributing
-
-Issue / PR 大歓迎です。詳細は `CONTRIBUTING.md` をご参照ください。
 
 ---
 

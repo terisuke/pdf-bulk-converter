@@ -34,13 +34,12 @@ env/
 .DS_Store
 
 # Project specific
-app/storage/
 local_storage/
+*.pdf
+*.jpg
+*.jpeg
+*.zip
 *.log
-.coverage
-htmlcov/
-.pytest_cache/
-.mypy_cache/
 
 # GCP
 *.json

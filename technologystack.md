@@ -8,13 +8,15 @@
 # 技術スタック
 
 ## バックエンド
-- Python: 3.11
-- FastAPI: 0.109.2
-- pypdfium2: 4.24.0 (Apache-2.0/BSD-3)
-- uvicorn: 0.27.1
-- python-multipart: 0.0.9
-- python-dotenv: 1.0.1
-- zipstream: 1.1.4
+- **Python 3.11**
+  - 最新の型ヒントと非同期処理機能を活用
+- **FastAPI**
+  - 高性能な非同期Webフレームワーク
+  - OpenAPI（Swagger）による自動API文書生成
+  - Pydanticによる堅牢なデータバリデーション
+- **PyMuPDF (fitz)**
+  - 高速なPDF処理
+  - 高品質な画像変換機能
 
 ## クラウドサービス
 - Google Cloud Platform
@@ -24,20 +26,21 @@
   - Cloud Scheduler: クリーンアップジョブ
 
 ## フロントエンド
-- HTML5
-- JavaScript (Vanilla)
-- Tailwind CSS: 3.4.17
-- Fetch API: 署名付きURL操作
-- EventSource: Server-Sent Events
+- **HTML/CSS/JavaScript**
+  - シンプルで効果的なUI
+  - レスポンシブデザイン
+  - 非同期アップロード処理
 
 ## 開発ツール
-- Docker: コンテナ化
-- GitHub Actions: CI/CD
-- Cloud Build: コンテナビルド
-- Terraform: インフラ定義（オプション）
+- **Docker**
+  - コンテナ化による環境の一貫性確保
+  - 簡単なデプロイメント
+- **GitHub Actions: CI/CD**
+- **Cloud Build: コンテナビルド**
+- **Terraform: インフラ定義（オプション）**
 
 ## 重要な制約事項
-- PDFレンダリングは pypdfium2 を使用（バージョン変更禁止）
+- PDFレンダリングは PyMuPDF (fitz) を使用（バージョン変更禁止）
 - Cloud Storage のライフサイクルポリシーは24時間
 - 署名付きURLの有効期限は環境変数で設定（デフォルト3600秒）
 
@@ -46,3 +49,27 @@
 - ファイル操作は Cloud Storage の署名付きURLを使用
 - 進捗通知は Server-Sent Events を使用
 - エラーハンドリングは FastAPI の例外処理を使用
+
+## 開発環境
+- **環境変数管理**
+  - `.env`ファイルによる設定管理
+  - 開発/本番環境の分離
+
+## ストレージ
+- **ローカルファイルシステム**
+  - アップロードされたPDFの一時保存
+  - 生成された画像の保存
+  - 非同期処理用のジョブキュー管理
+
+## セキュリティ
+- **CORS設定**
+- **ファイルサイズ制限**
+- **ファイル形式バリデーション**
+
+## パフォーマンス最適化
+- **非同期処理**
+  - FastAPIによる非同期リクエスト処理
+  - バックグラウンドタスク処理
+- **効率的なメモリ管理**
+  - ストリーミング処理
+  - 一時ファイルの適切な削除

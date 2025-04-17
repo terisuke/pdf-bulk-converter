@@ -12,6 +12,9 @@ from urllib.parse import unquote
 from app.core.job_status import job_status_manager
 from app.services.converter import convert_pdf_to_images
 import logging
+from typing import Optional
+import uuid
+from app.services.batch_processor import process_input
 
 # ロガーの設定
 logger = logging.getLogger(__name__)
@@ -54,6 +57,7 @@ async def get_job_status(job_id: str):
             status_dict = {
                 "status": status.status,
                 "message": status.message,
+                "progress": status.progress,
                 "created_at": status.created_at.isoformat() if status.created_at else None
             }
             yield f"data: {json.dumps(status_dict)}\n\n"
@@ -172,4 +176,55 @@ async def get_download_url(job_id: str):
         )
     except Exception as e:
         logger.error(f"ダウンロードURL生成エラー: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))            
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/upload")
+async def upload_file(
+    file: UploadFile = File(...),
+    dpi: Optional[int] = 300,
+    background_tasks: BackgroundTasks = BackgroundTasks()
+):
+    """
+    ファイル（PDF/ZIP）またはディレクトリをアップロードして処理
+    """
+    try:
+        # ジョブIDを生成
+        job_id = str(uuid.uuid4())
+        
+        # 一時保存用ディレクトリを作成
+        temp_dir = os.path.join(settings.get_storage_path(job_id), "temp")
+        os.makedirs(temp_dir, exist_ok=True)
+        
+        # ファイルを保存
+        file_path = os.path.join(temp_dir, file.filename)
+        with open(file_path, "wb") as buffer:
+            content = await file.read()
+            buffer.write(content)
+        
+        # 処理開始ステータスを更新
+        status = JobStatus(
+            job_id=job_id,
+            status="processing",
+            message="ファイルを処理中...",
+            progress=0,
+            created_at=datetime.now()
+        )
+        job_status_manager.update_status(job_id, status)
+        
+        # バックグラウンドで処理を開始
+        background_tasks.add_task(process_input, job_id, file_path, dpi)
+        
+        return {
+            "job_id": job_id,
+            "message": "処理を開始しました",
+            "status": "processing"
+        }
+        
+    except Exception as e:
+        logger.error(f"アップロードエラー: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        # 一時ファイルを削除
+        if os.path.exists(temp_dir):
+            import shutil
+            shutil.rmtree(temp_dir)            

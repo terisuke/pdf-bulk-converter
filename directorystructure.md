@@ -18,26 +18,24 @@
 │   │   └── download.py         # ダウンロード関連
 │   ├── core/                    # コア機能
 │   │   ├── config.py           # 設定管理
-│   │   └── security.py         # セキュリティ関連
+│   │   └── job_status.py       # ジョブ状態管理
 │   ├── services/               # ビジネスロジック
-│   │   ├── storage.py          # Cloud Storage操作
-│   │   ├── tasks.py           # Cloud Tasks操作
 │   │   └── converter.py       # PDF変換処理
 │   ├── models/                 # データモデル
 │   │   └── schemas.py         # Pydanticモデル
+│   ├── static/                # アプリケーション固有の静的ファイル
 │   └── main.py                 # アプリケーションエントリーポイント
-├── tests/                      # テストコード
-│   ├── api/                   # APIテスト
-│   └── services/              # サービステスト
-├── static/                    # 静的ファイル
+├── static/                    # グローバルな静的ファイル
 │   ├── css/                  # スタイルシート
 │   └── js/                   # フロントエンドスクリプト
 ├── templates/                 # HTMLテンプレート
-├── .env.example              # 環境変数テンプレート
-├── .gitignore               # Git除外設定
-├── Dockerfile               # コンテナ設定
-├── requirements.txt         # Python依存関係
-└── README.md               # プロジェクト説明
+├── local_storage/            # ローカル開発用ストレージ
+├── .env                    # 環境変数
+├── .env.example           # 環境変数テンプレート
+├── .gitignore            # Git除外設定
+├── Dockerfile            # コンテナ設定
+├── requirements.txt     # Python依存関係
+└── README.md           # プロジェクト説明
 ```
 
 ### 配置ルール
@@ -45,4 +43,6 @@
 - ビジネスロジック → `app/services/`
 - データモデル → `app/models/`
 - 設定関連 → `app/core/`
-- フロントエンド → `static/` と `templates/`
+- アプリケーション固有の静的ファイル → `app/static/`
+- グローバルな静的ファイル → `static/`
+- HTMLテンプレート → `templates/`

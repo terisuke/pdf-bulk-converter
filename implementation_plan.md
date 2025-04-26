@@ -55,7 +55,7 @@ devブランチでは以下の改善が既に実装されています：
 ### 1. 環境変数とモデルの整備
 - `.env`ファイルにCloud Storage関連設定を追加
 ```
-GCP_PROJECT=your-project-id
+GCP_PROJECT=yolov8environment
 REGION=asia-northeast1
 BUCKET_RAW=pdf-raw-bucket
 BUCKET_ZIP=pdf-zip-bucket

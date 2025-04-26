@@ -59,8 +59,12 @@ GCP_PROJECT=yolov8environment
 REGION=asia-northeast1
 BUCKET_RAW=pdf-raw-bucket
 BUCKET_ZIP=pdf-zip-bucket
-SERVICE_ACCOUNT_KEY=./path/to/service-account-key.json
+SERVICE_ACCOUNT_KEY=./config/service_account.json
 ```
+
+- `config`フォルダに`service_account.json`を配置
+  - Google Cloud Platformから取得したサービスアカウントキーを`config/service_account.json`として保存
+  - このファイルは機密情報を含むため、`.gitignore`に追加してバージョン管理から除外
 
 - `app/models/schemas.py`にリネーム設定パラメータ追加
 ```python
@@ -87,6 +91,7 @@ class UploadRequest(BaseModel):
 - 日本語ファイル名の処理に特に注意
 - ローカル環境（environment="local"）でも動作するように互換性を維持
 - 実装後はまずローカル環境で十分テストしてからデプロイする
+- `service_account.json`は機密情報を含むため、安全に管理し、公開リポジトリにアップロードしないよう注意
 
 ## テスト方法
 

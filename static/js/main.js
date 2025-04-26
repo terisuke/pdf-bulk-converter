@@ -12,8 +12,8 @@ document.addEventListener('DOMContentLoaded', () => {
     uploadForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         
-        const file = document.getElementById('pdfFile').files[0];
-        if (!file) {
+        const files = document.getElementById('pdfFile').files;
+        if (!files || files.length === 0) {
             alert('ファイルを選択してください');
             return;
         }
@@ -21,17 +21,23 @@ document.addEventListener('DOMContentLoaded', () => {
         const dpi = document.getElementById('dpi').value;
 
         try {
-            // アップロードURLを取得
+            // 進捗表示を開始
+            progressDiv.classList.remove('hidden');
+            resultDiv.classList.add('hidden');
+            progressText.textContent = 'ファイルをアップロード中...';
+
+            // 最初のファイルのアップロードURLを取得
+            const firstFile = files[0];
             const response = await fetch('/api/upload-url', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    filename: file.name,
-                    content_type: file.type,
+                    filename: firstFile.name,
+                    content_type: firstFile.type,
                     dpi: parseInt(dpi),
-                    format: "jpeg"  // 常にJPEG
+                    format: "jpeg"
                 })
             });
 
@@ -42,93 +48,60 @@ document.addEventListener('DOMContentLoaded', () => {
             const { upload_url, job_id } = await response.json();
             currentJobId = job_id;
 
-            // ファイルをアップロード
-            const formData = new FormData();
-            formData.append('file', file);
-            formData.append('dpi', dpi);
-            formData.append('format', 'jpeg');  // 常にJPEG
+            // すべてのファイルをアップロード
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                progressText.textContent = `ファイル ${i + 1}/${files.length} をアップロード中...`;
 
-            const fullUrl = upload_url.startsWith('/') ? 
-                window.location.origin + upload_url : upload_url;
-            
-            console.log('Uploading to URL:', fullUrl);
-            console.log('FormData contents:', Array.from(formData.entries()));
-                
-            try {
-                console.log('Starting fetch to:', fullUrl);
-                console.log('With method:', 'POST');
-                console.log('With body:', formData);
-                
+                // 最初のファイル以外は新しいアップロードURLを取得
+                let uploadUrl = upload_url;
+                if (i > 0) {
+                    const urlResponse = await fetch('/api/upload-url', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            filename: file.name,
+                            content_type: file.type,
+                            dpi: parseInt(dpi),
+                            format: "jpeg"
+                        })
+                    });
+
+                    if (!urlResponse.ok) {
+                        throw new Error('アップロードURLの取得に失敗しました');
+                    }
+
+                    const urlData = await urlResponse.json();
+                    uploadUrl = urlData.upload_url;
+                }
+
+                // ファイルをアップロード
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('dpi', dpi);
+                formData.append('format', 'jpeg');
+
+                const fullUrl = uploadUrl.startsWith('/') ? 
+                    window.location.origin + uploadUrl : uploadUrl;
+
                 const uploadResponse = await fetch(fullUrl, {
                     method: 'POST',
                     body: formData
                 });
-                
-                console.log('Upload response received:', uploadResponse);
-                console.log('Response status:', uploadResponse.status);
-                console.log('Response ok:', uploadResponse.ok);
-                
+
                 if (!uploadResponse.ok) {
-                    throw new Error(`Upload failed with status: ${uploadResponse.status}`);
+                    throw new Error(`アップロードに失敗しました: ${uploadResponse.status}`);
                 }
-                
-                // 進捗表示を開始
-                progressDiv.classList.remove('hidden');
-                progressText.textContent = 'アップロード完了、変換処理中...';
-                
-                try {
-                    console.log('Parsing response as JSON...');
-                    const responseData = await uploadResponse.json();
-                    console.log('Upload response data:', responseData);
-                    
-                    if (responseData && responseData.message && responseData.message.includes('successfully')) {
-                        console.log('Conversion completed successfully');
-                        
-                        await new Promise(resolve => setTimeout(resolve, 2000));
-                        
-                        try {
-                            console.log('Getting download URL for job:', currentJobId);
-                            const downloadResponse = await fetch(`/api/download/${currentJobId}`);
-                            console.log('Download response:', downloadResponse);
-                            
-                            if (downloadResponse.ok) {
-                                const downloadData = await downloadResponse.json();
-                                console.log('Download data:', downloadData);
-                                
-                                downloadLink.href = downloadData.download_url;
-                                progressDiv.classList.add('hidden');
-                                resultDiv.classList.remove('hidden');
-                            } else {
-                                console.error('Failed to get download URL');
-                                progressText.textContent = '変換は完了しましたが、ダウンロードURLの取得に失敗しました。';
-                            }
-                        } catch (downloadError) {
-                            console.error('Download error:', downloadError);
-                            progressText.textContent = '変換は完了しましたが、ダウンロードURLの取得に失敗しました。';
-                        }
-                    }
-                } catch (parseError) {
-                    console.error('Error parsing response:', parseError);
-                }
-            } catch (uploadError) {
-                console.error('Upload error details:', uploadError);
-                console.error('Error name:', uploadError.name);
-                console.error('Error message:', uploadError.message);
-                console.error('Error stack:', uploadError.stack);
-                alert('アップロードエラー: ' + uploadError.message);
-                throw uploadError;
             }
 
-            // 進捗表示を開始
-            progressDiv.classList.remove('hidden');
-            resultDiv.classList.add('hidden');
-            
             // Server-Sent Eventsで進捗を監視
             if (eventSource) {
                 eventSource.close();
             }
-            
-            eventSource = new EventSource(`/api/status/${job_id}`);
+
+            eventSource = new EventSource(`/api/status/${currentJobId}`);
             eventSource.onmessage = (event) => {
                 const data = JSON.parse(event.data);
                 updateProgress(data);
@@ -137,50 +110,74 @@ document.addEventListener('DOMContentLoaded', () => {
                 eventSource.close();
             };
 
+            // 変換が完了するまで待機
+            await new Promise(resolve => {
+                const checkStatus = async () => {
+                    const statusResponse = await fetch(`/api/status/${currentJobId}`);
+                    if (statusResponse.ok) {
+                        const statusData = await statusResponse.json();
+                        if (statusData.status === 'completed') {
+                            resolve();
+                        } else if (statusData.status === 'error') {
+                            throw new Error(statusData.message || '変換中にエラーが発生しました');
+                        } else {
+                            setTimeout(checkStatus, 1000);
+                        }
+                    } else {
+                        throw new Error('ステータスの取得に失敗しました');
+                    }
+                };
+                checkStatus();
+            });
+
+            // ダウンロードURLを取得
+            const downloadResponse = await fetch(`/api/download/${currentJobId}`);
+            
+            if (downloadResponse.ok) {
+                const downloadData = await downloadResponse.json();
+                downloadLink.href = downloadData.download_url;
+                progressDiv.classList.add('hidden');
+                resultDiv.classList.remove('hidden');
+            } else {
+                progressText.textContent = '変換は完了しましたが、ダウンロードURLの取得に失敗しました。';
+            }
         } catch (error) {
             console.error('Error:', error);
             alert('エラーが発生しました: ' + error.message);
+            progressDiv.classList.add('hidden');
         }
     });
 
     function updateProgress(data) {
-        const { status, progress, error } = data;
+        const { status, progress, message } = data;
         
         progressBar.style.width = `${progress}%`;
-        progressText.textContent = `変換中... ${progress}%`;
+        progressText.textContent = message || `変換中... ${progress}%`;
 
         if (status === 'completed') {
             eventSource.close();
-            showResult();
+            
+            // ダウンロードURLを取得
+            fetch(`/api/download/${currentJobId}`)
+                .then(response => {
+                    if (response.ok) {
+                        return response.json();
+                    } else {
+                        throw new Error('ダウンロードURLの取得に失敗しました');
+                    }
+                })
+                .then(downloadData => {
+                    downloadLink.href = downloadData.download_url;
+                    progressDiv.classList.add('hidden');
+                    resultDiv.classList.remove('hidden');
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    progressText.textContent = '変換は完了しましたが、ダウンロードURLの取得に失敗しました。';
+                });
         } else if (status === 'error') {
             eventSource.close();
-            alert('エラーが発生しました: ' + error);
-        }
-    }
-
-    async function showResult() {
-        try {
-            console.log('Getting download URL for job:', currentJobId);
-            const response = await fetch(`/api/download/${currentJobId}`);
-            console.log('Download URL response:', response);
-            
-            if (!response.ok) {
-                throw new Error('ダウンロードURLの取得に失敗しました');
-            }
-
-            const data = await response.json();
-            console.log('Download URL data:', data);
-            
-            const download_url = data.download_url;
-            console.log('Setting download link to:', download_url);
-            
-            downloadLink.href = download_url;
-            
-            progressDiv.classList.add('hidden');
-            resultDiv.classList.remove('hidden');
-        } catch (error) {
-            console.error('Error:', error);
-            alert('エラーが発生しました: ' + error.message);
+            alert('エラーが発生しました: ' + message);
         }
     }
 });                    

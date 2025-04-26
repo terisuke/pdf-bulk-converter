@@ -5,6 +5,8 @@ from datetime import datetime
 class UploadRequest(BaseModel):
     filename: str
     content_type: str
+    dpi: Optional[int] = 300
+    format: Optional[str] = "jpeg"
 
 class UploadResponse(BaseModel):
     upload_url: str

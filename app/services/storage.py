@@ -46,11 +46,12 @@ def generate_upload_url(filename: str, content_type: str = "") -> tuple[str, str
     return f"/local-upload/{job_id}/{encoded_filename}", job_id
 
 def generate_download_url(job_id: str) -> str:
-    """ダウンロードURLを生成（ローカルモードでは一時的なダウンロードパスを返す）"""
+    """署名付きダウンロードURLを生成（ローカルモードでは一時的なダウンロードパスを返す）"""
     if settings.environment == "local":
         # ローカルモード: 一時的なダウンロードパスを返す
         storage_path = settings.get_storage_path(job_id)
-        zip_files = [f for f in os.listdir(storage_path) if f.endswith("_images.zip")]
+        # _images.zipで終わるファイルまたはall_pdfs_images.zipを検索
+        zip_files = [f for f in os.listdir(storage_path) if f.endswith("_images.zip") or f == "all_pdfs_images.zip"]
         if not zip_files:
             raise ValueError("ZIP file not found")
         
@@ -71,7 +72,15 @@ def generate_download_url(job_id: str) -> str:
     #     
     #     return url
     # 開発中はローカルモードのみ対応
-    return f"/local-download/{job_id}/output.zip"
+    # ローカルモードでも見つかったZIPファイルを使用
+    storage_path = settings.get_storage_path(job_id)
+    zip_files = [f for f in os.listdir(storage_path) if f.endswith("_images.zip") or f == "all_pdfs_images.zip"]
+    if not zip_files:
+        raise ValueError("ZIP file not found")
+    
+    from urllib.parse import quote
+    encoded_filename = quote(zip_files[0])
+    return f"/local-download/{job_id}/{encoded_filename}"
 
 def cleanup_job(job_id: str):
     """ジョブ関連のファイルをクリーンアップ"""

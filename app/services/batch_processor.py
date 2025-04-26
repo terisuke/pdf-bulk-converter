@@ -6,6 +6,8 @@ import asyncio
 import logging
 from app.core.config import get_settings
 from app.services.converter import convert_pdf_to_images
+from datetime import datetime
+from app.services.job_status import JobStatus, job_status_manager
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -113,4 +115,48 @@ async def process_input(
     elif os.path.isdir(input_path):
         return await process_directory(job_id, input_path, dpi)
     
-    raise ValueError(f"未対応の入力形式: {input_path}") 
+    raise ValueError(f"未対応の入力形式: {input_path}")
+
+async def process_multiple_files(job_id: str, file_paths: List[str], dpi: int = 300) -> List[str]:
+    """
+    複数のファイルを処理
+    
+    Args:
+        job_id: ジョブID
+        file_paths: 処理するファイルのパスリスト
+        dpi: 出力画像のDPI
+    
+    Returns:
+        処理されたPDFファイルのパスリスト
+    """
+    processed_files = []
+    total_files = len(file_paths)
+    
+    for i, file_path in enumerate(file_paths, 1):
+        try:
+            if file_path.lower().endswith('.zip'):
+                processed = await process_zip(job_id, file_path, dpi)
+                processed_files.extend(processed)
+            elif file_path.lower().endswith('.pdf'):
+                await convert_pdf_to_images(job_id, file_path, dpi)
+                processed_files.append(file_path)
+            else:
+                logger.warning(f"未対応のファイル形式: {file_path}")
+                continue
+                
+            # 進捗状況を更新
+            progress = (i / total_files) * 100
+            status = JobStatus(
+                job_id=job_id,
+                status="processing",
+                message=f"ファイル {i}/{total_files} を処理中...",
+                progress=progress,
+                created_at=datetime.now()
+            )
+            job_status_manager.update_status(job_id, status)
+            
+        except Exception as e:
+            logger.error(f"ファイル処理エラー: {file_path} - {str(e)}")
+            continue
+    
+    return processed_files 

@@ -147,7 +147,7 @@ async def convert_pdf_to_images(
             created_at=datetime.now()
         )
         job_status_manager.update_status(job_id, error_status)
-        raise        
+        raise
 
 async def process_single_pdf(job_id: str, pdf_path: str, dpi: int, format: str, output_dir: str) -> Tuple[str, List[str]]:
     """
@@ -224,4 +224,85 @@ def create_zip_file(image_paths: List[str], job_id: str) -> str:
             # UTF-8でファイル名を保存
             zipf.write(image_path, arcname)
     
-    return zip_path        
+    return zip_path
+
+# 複数のPDFファイルを処理する関数を追加
+async def process_multiple_pdfs(job_id: str, pdf_paths: List[str], dpi: int = 300, format: str = "jpeg") -> Tuple[str, List[str]]:
+    """
+    複数のPDFファイルを処理し、1つのZIPファイルにまとめる
+    
+    Args:
+        job_id: ジョブID
+        pdf_paths: PDFファイルのパスリスト
+        dpi: 出力画像のDPI
+        format: 出力形式（常にjpeg）
+    
+    Returns:
+        Tuple[ZIPファイルパス, 生成された画像ファイルのパスリスト]
+    """
+    try:
+        # 常にJPEGとして処理
+        format = "jpeg"
+        logger.info(f"複数PDF変換開始: job_id={job_id}, pdf_count={len(pdf_paths)}, dpi={dpi}")
+        
+        # 出力ディレクトリの作成
+        output_dir = os.path.join(settings.get_storage_path(job_id), "images")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        # すべての画像ファイルのパスを保持
+        all_image_paths = []
+        
+        # 各PDFファイルを処理
+        total_files = len(pdf_paths)
+        for i, pdf_path in enumerate(pdf_paths, 1):
+            # PDFファイルを処理
+            _, image_paths = await process_single_pdf(job_id, pdf_path, dpi, format, output_dir)
+            all_image_paths.extend(image_paths)
+            
+            # 全体の進捗を更新
+            total_progress = (i / total_files) * 100
+            status = JobStatus(
+                job_id=job_id,
+                status="processing",
+                message=f"PDFファイル {i}/{total_files} を処理中",
+                progress=total_progress,
+                created_at=datetime.now()
+            )
+            job_status_manager.update_status(job_id, status)
+        
+        # すべての画像を1つのZIPファイルにまとめる
+        zip_filename = f"all_pdfs_images.zip"
+        zip_path = os.path.join(settings.get_storage_path(job_id), zip_filename)
+        
+        with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            for image_path in all_image_paths:
+                # ファイル名のみを取得（ディレクトリパスを除外）
+                arcname = os.path.basename(image_path)
+                # UTF-8でファイル名を保存
+                zipf.write(image_path, arcname)
+        
+        # 完了ステータスを設定
+        complete_status = JobStatus(
+            job_id=job_id,
+            status="completed",
+            message="すべてのファイルの変換が完了しました",
+            progress=100,
+            created_at=datetime.now()
+        )
+        job_status_manager.update_status(job_id, complete_status)
+        
+        return output_dir, all_image_paths
+        
+    except Exception as e:
+        # エラーが発生した場合、ステータスを更新
+        error_message = f"変換中にエラーが発生しました: {str(e)}"
+        logger.error(f"エラー発生: job_id={job_id}, error={str(e)}")
+        error_status = JobStatus(
+            job_id=job_id,
+            status="error",
+            message=error_message,
+            progress=0,
+            created_at=datetime.now()
+        )
+        job_status_manager.update_status(job_id, error_status)
+        raise        

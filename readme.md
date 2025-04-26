@@ -1,4 +1,4 @@
-# �� PDF Bulk Converter
+# PDF Bulk Converter
 
 高画質 PDF → JPEG変換 & ZIP ダウンロードを提供するブラウザアプリケーションの README です。
 
@@ -68,7 +68,8 @@ pdf-bulk-converter/
 │   │   ├── config.py           # 設定管理
 │   │   └── job_status.py       # ジョブ状態管理
 │   ├── services/               # ビジネスロジック
-│   │   └── converter.py       # PDF変換処理
+│   │   ├── converter.py       # PDF変換処理
+│   │   └── storage.py         # ストレージ管理
 │   ├── models/                 # データモデル
 │   │   └── schemas.py         # Pydanticモデル
 │   ├── static/                # アプリケーション固有の静的ファイル
@@ -140,17 +141,38 @@ $ cp .env.example .env
 $ uvicorn app.main:app --reload
 ```
 
+### インストール時の注意点
+- Python 3.11以上が必要です
+- PyMuPDFのインストールには、システムにMuPDFライブラリが必要な場合があります
+  - macOS: `brew install mupdf`
+  - Ubuntu: `apt-get install libmupdf-dev`
+  - Windows: 通常は自動的にインストールされます
+
+### 仮想環境の問題解決
+- 仮想環境の作成に失敗する場合: `python -m venv venv --clear`を試してください
+- 依存関係のインストールに失敗する場合: `pip install --upgrade pip`を実行してから再試行してください
+- PyMuPDFのインストールに失敗する場合: システムにMuPDFライブラリがインストールされているか確認してください
+
 ---
 
 ## ⚙️ 環境変数 (.env)
 
-| 変数           | 例                | 説明       |
-|----------------|-------------------|----------|
-| `STORAGE_PATH` | `./local_storage` | ファイル保存パス |
+| 変数           | 例                | 説明                           |
+|----------------|-------------------|------------------------------|
+| `STORAGE_PATH` | `./local_storage` | ファイル保存パス                     |
+| `ENVIRONMENT`  | `local`           | 実行環境 (`local` または `cloud`) |
 
 ---
 
 ## 📝 最近の更新
+
+### 2024-04-26
+- ✅ ダウンロードボタンの表示問題を修正
+  - ZIPファイル名の不一致を解消
+  - フロントエンドのダウンロードURL取得処理を改善
+- ✅ ストレージ管理の改善
+  - ローカルモードでのZIPファイル検索ロジックを強化
+  - ファイル名のエンコーディング処理を改善
 
 ### 2024-04-18
 - ✅ 出力形式をJPEGに統一

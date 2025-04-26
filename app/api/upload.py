@@ -10,11 +10,11 @@ import asyncio
 from fastapi import BackgroundTasks
 from urllib.parse import unquote
 from app.core.job_status import job_status_manager
-from app.services.converter import convert_pdf_to_images
+from app.services.converter import convert_pdf_to_images, process_multiple_pdfs
 import logging
-from typing import Optional
+from typing import Optional, List
 import uuid
-from app.services.batch_processor import process_input
+from app.services.batch_processor import process_input, process_multiple_files
 
 # ロガーの設定
 logger = logging.getLogger(__name__)
@@ -22,6 +22,9 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 local_router = APIRouter()
 settings = get_settings()
+
+# 複数のファイルを処理するための辞書
+pending_files = {}
 
 @router.post("/upload-url", response_model=UploadResponse)
 async def get_upload_url(request: UploadRequest):
@@ -37,6 +40,16 @@ async def get_upload_url(request: UploadRequest):
             message="ジョブを初期化しました"
         )
         job_status_manager.update_status(job_id, initial_status)
+        
+        # ファイル情報を保存
+        if job_id not in pending_files:
+            pending_files[job_id] = []
+        pending_files[job_id].append({
+            "filename": request.filename,
+            "content_type": request.content_type,
+            "dpi": request.dpi,
+            "format": request.format
+        })
         
         return UploadResponse(
             upload_url=upload_url,
@@ -106,12 +119,26 @@ async def local_upload(
         )
         job_status_manager.update_status(job_id, job_status)
         
-        # バックグラウンドで変換処理を開始
-        background_tasks.add_task(
-            convert_pdf_to_images,
-            job_id=job_id,
-            pdf_path=upload_path
-        )
+        # このジョブのすべてのファイルがアップロードされたかチェック
+        if job_id in pending_files:
+            # アップロード済みのファイル数をカウント
+            uploaded_files = [f for f in os.listdir(settings.get_storage_path(job_id)) if f.endswith('.pdf')]
+            
+            # すべてのファイルがアップロードされた場合、変換処理を開始
+            if len(uploaded_files) == len(pending_files[job_id]):
+                # 保存されたファイルのパスを取得
+                pdf_paths = [os.path.join(settings.get_storage_path(job_id), f) for f in uploaded_files]
+                
+                # バックグラウンドで変換処理を開始
+                background_tasks.add_task(
+                    process_multiple_pdfs,
+                    job_id=job_id,
+                    pdf_paths=pdf_paths,
+                    dpi=pending_files[job_id][0].get('dpi', 300)
+                )
+                
+                # 処理済みのファイル情報を削除
+                del pending_files[job_id]
         
         return {"message": "ファイルのアップロードが完了しました"}
     except Exception as e:
@@ -162,7 +189,8 @@ async def get_download_url(job_id: str):
         
         # ZIPファイル名を取得
         storage_path = settings.get_storage_path(job_id)
-        zip_files = [f for f in os.listdir(storage_path) if f.endswith("_images.zip")]
+        # _images.zipで終わるファイルまたはall_pdfs_images.zipを検索
+        zip_files = [f for f in os.listdir(storage_path) if f.endswith("_images.zip") or f == "all_pdfs_images.zip"]
         if not zip_files:
             raise HTTPException(status_code=404, detail="ZIP file not found")
         
@@ -180,12 +208,12 @@ async def get_download_url(job_id: str):
 
 @router.post("/upload")
 async def upload_file(
-    file: UploadFile = File(...),
+    files: List[UploadFile] = File(...),
     dpi: Optional[int] = 300,
     background_tasks: BackgroundTasks = BackgroundTasks()
 ):
     """
-    ファイル（PDF/ZIP）またはディレクトリをアップロードして処理
+    複数のファイル（PDF/ZIP）をアップロードして処理
     """
     try:
         # ジョブIDを生成
@@ -195,24 +223,27 @@ async def upload_file(
         temp_dir = os.path.join(settings.get_storage_path(job_id), "temp")
         os.makedirs(temp_dir, exist_ok=True)
         
-        # ファイルを保存
-        file_path = os.path.join(temp_dir, file.filename)
-        with open(file_path, "wb") as buffer:
-            content = await file.read()
-            buffer.write(content)
+        # 各ファイルを保存
+        saved_files = []
+        for file in files:
+            file_path = os.path.join(temp_dir, file.filename)
+            with open(file_path, "wb") as buffer:
+                content = await file.read()
+                buffer.write(content)
+            saved_files.append(file_path)
         
         # 処理開始ステータスを更新
         status = JobStatus(
             job_id=job_id,
             status="processing",
-            message="ファイルを処理中...",
+            message=f"{len(files)}個のファイルを処理中...",
             progress=0,
             created_at=datetime.now()
         )
         job_status_manager.update_status(job_id, status)
         
         # バックグラウンドで処理を開始
-        background_tasks.add_task(process_input, job_id, file_path, dpi)
+        background_tasks.add_task(process_multiple_files, job_id, saved_files, dpi)
         
         return {
             "job_id": job_id,
@@ -227,4 +258,53 @@ async def upload_file(
         # 一時ファイルを削除
         if os.path.exists(temp_dir):
             import shutil
-            shutil.rmtree(temp_dir)            
+            shutil.rmtree(temp_dir)
+
+async def process_multiple_files(job_id: str, file_paths: List[str], dpi: int = 300):
+    """
+    複数のファイルを処理
+    """
+    try:
+        total_files = len(file_paths)
+        processed_files = []
+        
+        for i, file_path in enumerate(file_paths, 1):
+            # 進捗状況を更新
+            progress = (i - 1) / total_files * 100
+            status = JobStatus(
+                job_id=job_id,
+                status="processing",
+                message=f"ファイル {i}/{total_files} を処理中...",
+                progress=progress,
+                created_at=datetime.now()
+            )
+            job_status_manager.update_status(job_id, status)
+            
+            # ファイルを処理
+            if file_path.lower().endswith('.zip'):
+                processed = await process_zip(job_id, file_path, dpi)
+                processed_files.extend(processed)
+            elif file_path.lower().endswith('.pdf'):
+                await convert_pdf_to_images(job_id, file_path, dpi)
+                processed_files.append(file_path)
+        
+        # 完了ステータスを更新
+        final_status = JobStatus(
+            job_id=job_id,
+            status="completed",
+            message=f"{total_files}個のファイルの処理が完了しました",
+            progress=100,
+            created_at=datetime.now()
+        )
+        job_status_manager.update_status(job_id, final_status)
+        
+    except Exception as e:
+        logger.error(f"処理エラー: {str(e)}")
+        error_status = JobStatus(
+            job_id=job_id,
+            status="error",
+            message=f"処理中にエラーが発生しました: {str(e)}",
+            progress=0,
+            created_at=datetime.now()
+        )
+        job_status_manager.update_status(job_id, error_status)            

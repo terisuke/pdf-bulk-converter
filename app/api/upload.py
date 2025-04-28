@@ -122,7 +122,7 @@ async def local_upload(
         # このジョブのすべてのファイルがアップロードされたかチェック
         if job_id in pending_files:
             # アップロード済みのファイル数をカウント
-            uploaded_files = [f for f in os.listdir(settings.get_storage_path(job_id)) if f.endswith('.pdf')]
+            uploaded_files = [f for f in os.listdir(settings.get_storage_path(job_id)) if f.lower().endswith('.pdf')]
             
             # すべてのファイルがアップロードされた場合、変換処理を開始
             if len(uploaded_files) == len(pending_files[job_id]):

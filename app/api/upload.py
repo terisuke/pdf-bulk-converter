@@ -14,7 +14,7 @@ from app.services.converter import convert_pdf_to_images, process_multiple_pdfs
 import logging
 from typing import Optional, List
 import uuid
-from app.services.batch_processor import process_input, process_multiple_files
+from app.services.batch_processor import process_input, process_multiple_files, process_zip
 
 # ロガーの設定
 logger = logging.getLogger(__name__)

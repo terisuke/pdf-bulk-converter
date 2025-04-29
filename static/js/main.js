@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const resultDiv = document.getElementById('result');
     const downloadLink = document.getElementById('downloadLink');
 
+    let currentSessionId = null;
     let currentJobId = null;
     let eventSource = null;
 
@@ -24,16 +25,26 @@ document.addEventListener('DOMContentLoaded', () => {
             // 進捗表示を開始
             progressDiv.classList.remove('hidden');
             resultDiv.classList.add('hidden');
-            progressText.textContent = 'ファイルをアップロード中...';
+
+            // セッションIDを取得
+            const res_session = await fetch('/api/session', {
+                method: 'GET'
+            });
+            if (!res_session.ok) {
+                throw new Error('セッションIDの取得に失敗しました');
+            }
+            const sessionData = await res_session.json();
+            currentSessionId = sessionData.session_id;
 
             // 最初のファイルのアップロードURLを取得
             const firstFile = files[0];
-            const response = await fetch('/api/upload-url', {
+            const res_firstjob = await fetch('/api/upload-url', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
+                    session_id: currentSessionId,
                     filename: firstFile.name,
                     content_type: firstFile.type,
                     dpi: parseInt(dpi),
@@ -41,11 +52,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 })
             });
 
-            if (!response.ok) {
+            if (!res_firstjob.ok) {
                 throw new Error('アップロードURLの取得に失敗しました');
             }
 
-            const { upload_url, job_id } = await response.json();
+            const { upload_url, session_id, job_id } = await res_firstjob.json();
             currentJobId = job_id;
 
             // すべてのファイルをアップロード
@@ -56,12 +67,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 // 最初のファイル以外は新しいアップロードURLを取得
                 let uploadUrl = upload_url;
                 if (i > 0) {
-                    const urlResponse = await fetch('/api/upload-url', {
+                    const res_nextjob = await fetch('/api/upload-url/', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
                         },
                         body: JSON.stringify({
+                            session_id: currentSessionId,
                             filename: file.name,
                             content_type: file.type,
                             dpi: parseInt(dpi),
@@ -69,11 +81,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         })
                     });
 
-                    if (!urlResponse.ok) {
+                    if (!res_nextjob.ok) {
                         throw new Error('アップロードURLの取得に失敗しました');
                     }
 
-                    const urlData = await urlResponse.json();
+                    const urlData = await res_nextjob.json();
                     uploadUrl = urlData.upload_url;
                 }
 

@@ -6,6 +6,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 class JobStatus(BaseModel):
+    session_id: str
     job_id: str
     status: str  # "pending", "processing", "completed", "failed"
     message: str

@@ -7,6 +7,7 @@ class UploadRequest(BaseModel):
     content_type: str
     dpi: Optional[int] = 300
     format: Optional[str] = "jpeg"
+    start_number: Optional[int] = 1  # 連番開始番号
 
 class UploadResponse(BaseModel):
     upload_url: str

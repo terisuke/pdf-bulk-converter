@@ -30,9 +30,23 @@ async def process_directory(
     """
     processed_files = []
     
+    # 除外するパターン
+    exclude_patterns = [
+        '__MACOSX',
+        '._',
+        '.DS_Store'
+    ]
+    
     # ディレクトリ内のPDFファイルを再帰的に検索
-    for root, _, files in os.walk(directory_path):
+    for root, dirs, files in os.walk(directory_path):
+        # 除外パターンに一致するディレクトリをスキップ
+        dirs[:] = [d for d in dirs if not any(pattern in d for pattern in exclude_patterns)]
+        
         for file in files:
+            # 除外パターンに一致するファイルをスキップ
+            if any(pattern in file for pattern in exclude_patterns):
+                continue
+                
             if file.lower().endswith('.pdf'):
                 pdf_path = os.path.join(root, file)
                 try:

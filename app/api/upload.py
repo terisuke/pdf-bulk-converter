@@ -122,20 +122,42 @@ async def local_upload(
         # このジョブのすべてのファイルがアップロードされたかチェック
         if job_id in pending_files:
             # アップロード済みのファイル数をカウント
-            uploaded_files = [f for f in os.listdir(settings.get_storage_path(job_id)) if f.lower().endswith('.pdf')]
+            uploaded_files = [f for f in os.listdir(settings.get_storage_path(job_id)) 
+                            if f.lower().endswith(('.pdf', '.zip'))]
             
             # すべてのファイルがアップロードされた場合、変換処理を開始
             if len(uploaded_files) == len(pending_files[job_id]):
                 # 保存されたファイルのパスを取得
-                pdf_paths = [os.path.join(settings.get_storage_path(job_id), f) for f in uploaded_files]
+                file_paths = [os.path.join(settings.get_storage_path(job_id), f) for f in uploaded_files]
+                
+                # ZIPファイルとPDFファイルを分離
+                zip_files = [f for f in file_paths if f.lower().endswith('.zip')]
+                pdf_files = [f for f in file_paths if f.lower().endswith('.pdf')]
                 
                 # バックグラウンドで変換処理を開始
-                background_tasks.add_task(
-                    process_multiple_pdfs,
-                    job_id=job_id,
-                    pdf_paths=pdf_paths,
-                    dpi=pending_files[job_id][0].get('dpi', 300)
-                )
+                if zip_files:
+                    if len(zip_files) == 1:
+                        background_tasks.add_task(
+                            process_zip,
+                            job_id=job_id,
+                            zip_path=zip_files[0],
+                            dpi=pending_files[job_id][0].get('dpi', 300)
+                        )
+                    # TODO: zipが複数時の対応 (process_zipが複数zipファイル未対応)
+                    # else: 
+                    #     background_tasks.add_task(
+                    #         process_zips,
+                    #         job_id=job_id,
+                    #         zip_paths=zip_files,
+                    #         dpi=pending_files[job_id][0].get('dpi', 300)
+                    #     )
+                if pdf_files:
+                    background_tasks.add_task(
+                        process_multiple_pdfs,
+                        job_id=job_id,
+                        pdf_paths=pdf_files,
+                        dpi=pending_files[job_id][0].get('dpi', 300)
+                    )
                 
                 # 処理済みのファイル情報を削除
                 del pending_files[job_id]

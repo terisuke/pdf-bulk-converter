@@ -19,7 +19,8 @@ async def convert_pdf_to_images(
     job_id: str,
     pdf_path: str,
     dpi: int = 300,
-    format: str = "jpeg"
+    format: str = "jpeg",
+    start_number: int = 1
 ) -> Tuple[str, List[str]]:
     """
     PDFをJPEG画像に変換し、ZIPファイルにまとめる
@@ -29,6 +30,7 @@ async def convert_pdf_to_images(
         pdf_path: PDFファイルのパス
         dpi: 出力画像のDPI
         format: 出力形式（常にjpeg）
+        start_number: 連番開始番号
     
     Returns:
         Tuple[ZIPファイルパス, 生成された画像ファイルのパスリスト]
@@ -88,7 +90,7 @@ async def convert_pdf_to_images(
                 total_files = len(pdf_files)
                 for i, pdf_file in enumerate(pdf_files, 1):
                     # 各PDFファイルを処理
-                    _, image_paths = await process_single_pdf(job_id, pdf_file, dpi, format, output_dir)
+                    _, image_paths = await process_single_pdf(job_id, pdf_file, dpi, format, output_dir, start_number)
                     all_image_paths.extend(image_paths)
                     
                     # 全体の進捗を更新
@@ -118,7 +120,7 @@ async def convert_pdf_to_images(
                 return output_dir, all_image_paths
         else:
             # 単一のPDFファイルを処理
-            result = await process_single_pdf(job_id, pdf_path, dpi, format, output_dir)
+            result = await process_single_pdf(job_id, pdf_path, dpi, format, output_dir, start_number)
             
             # 画像をZIPファイルにまとめる
             zip_path = create_zip_file(result[1], job_id)
@@ -149,7 +151,7 @@ async def convert_pdf_to_images(
         job_status_manager.update_status(job_id, error_status)
         raise
 
-async def process_single_pdf(job_id: str, pdf_path: str, dpi: int, format: str, output_dir: str) -> Tuple[str, List[str]]:
+async def process_single_pdf(job_id: str, pdf_path: str, dpi: int, format: str, output_dir: str, output_startnum: int,) -> Tuple[str, List[str]]:
     """
     単一のPDFファイルを画像に変換する
     
@@ -159,6 +161,7 @@ async def process_single_pdf(job_id: str, pdf_path: str, dpi: int, format: str, 
         dpi: 出力画像のDPI
         format: 出力画像のフォーマット
         output_dir: 出力ディレクトリ
+        output_startnum: 出力ファイルの連番開始番号 
         
     Returns:
         Tuple[str, List[str]]: 出力ディレクトリのパスと生成された画像ファイルのパスのリスト
@@ -177,7 +180,8 @@ async def process_single_pdf(job_id: str, pdf_path: str, dpi: int, format: str, 
         pix = page.get_pixmap(matrix=fitz.Matrix(dpi/72, dpi/72))
         
         # 画像ファイル名を生成
-        image_filename = f"{pdf_name}_page{page_num + 1}.{format}"
+        image_serialnum = output_startnum + page_num
+        image_filename = f"{image_serialnum:04d}.{format}"
         image_path = os.path.join(output_dir, image_filename)
         
         # 画像を保存
@@ -256,7 +260,7 @@ async def process_multiple_pdfs(job_id: str, pdf_paths: List[str], dpi: int = 30
         total_files = len(pdf_paths)
         for i, pdf_path in enumerate(pdf_paths, 1):
             # PDFファイルを処理
-            _, image_paths = await process_single_pdf(job_id, pdf_path, dpi, format, output_dir)
+            _, image_paths = await process_single_pdf(job_id, pdf_path, dpi, format, output_dir, 1)
             all_image_paths.extend(image_paths)
             
             # 全体の進捗を更新

@@ -23,7 +23,7 @@ class JobStatusManager:
     def update_status(self, job_id: str, status: JobStatus):
         """ジョブのステータスを更新"""
         self._statuses[job_id] = status
-        logger.info(f"ジョブ {job_id} のステータスを更新: {status.status} ({status.progress}%)")
+        logger.info(f"ジョブ {job_id} のステータスを更新: {status.status} ({status.progress:.2f}%)")
     
     def get_status(self, job_id: str) -> Optional[JobStatus]:
         """ジョブのステータスを取得"""
@@ -41,7 +41,7 @@ class JobStatusManager:
             if message:
                 status.message = message
             self._statuses[job_id] = status
-            logger.info(f"ジョブ {job_id} の進捗を更新: {progress}%")
+            logger.info(f"ジョブ {job_id} の進捗を更新: {progress:.2f}%")
 
 # シングルトンインスタンスを作成
 job_status_manager = JobStatusManager() 

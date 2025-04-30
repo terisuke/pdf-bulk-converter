@@ -18,6 +18,13 @@ class UploadResponse(BaseModel):
     session_id: str
     job_id: str
 
+class SessionStatus(BaseModel):
+    session_id: str
+    status: str
+    message: str
+    progress: float
+    image_num: int
+
 class JobStatus(BaseModel):
     session_id: str
     job_id: str

@@ -10,6 +10,7 @@ import asyncio
 from fastapi import BackgroundTasks
 from urllib.parse import unquote
 from app.core.job_status import job_status_manager
+from app.core.session_status import session_status_manager
 from app.services.converter import convert_pdf_to_images, process_multiple_pdfs
 import logging
 from typing import Optional, List
@@ -30,6 +31,8 @@ pending_files = {}
 def get_session_id():
     try:
         session_url, session_id = generate_session_url()
+        # TODO: 正式にはフロントから開始番号を取得
+        session_status_manager.set_imagenum(1)
         return SessionResponse(
             session_id=session_id
         )

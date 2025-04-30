@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import List, Tuple
 import fitz
 from app.core.job_status import JobStatus, job_status_manager
+from app.core.session_status import SessionStatus, session_status_manager
 from datetime import datetime
 import logging
 from app.core.config import get_settings
@@ -151,7 +152,7 @@ async def convert_pdf_to_images(
         job_status_manager.update_status(job_id, error_status)
         raise
 
-async def process_single_pdf(session_id: str, job_id: str, pdf_path: str, dpi: int, format: str, images_dir: str, output_startnum: int,) -> Tuple[str, List[str]]:
+async def process_single_pdf(session_id: str, job_id: str, pdf_path: str, dpi: int, format: str, images_dir: str,) -> Tuple[str, List[str]]:
     """
     単一のPDFファイルを画像に変換する
     
@@ -162,7 +163,6 @@ async def process_single_pdf(session_id: str, job_id: str, pdf_path: str, dpi: i
         dpi: 出力画像のDPI
         format: 出力画像のフォーマット
         images_dir: 出力ディレクトリ
-        output_startnum: 出力ファイルの連番開始番号 
         
     Returns:
         Tuple[str, List[str]]: 出力ディレクトリのパスと生成された画像ファイルのパスのリスト
@@ -174,6 +174,8 @@ async def process_single_pdf(session_id: str, job_id: str, pdf_path: str, dpi: i
     pdf_document = fitz.open(pdf_path)
     total_pages = len(pdf_document)
     image_paths = []
+
+    imagenum_start = session_status_manager.get_imagenum()
     
     # 各ページを画像に変換
     for page_num in range(total_pages):
@@ -181,8 +183,8 @@ async def process_single_pdf(session_id: str, job_id: str, pdf_path: str, dpi: i
         pix = page.get_pixmap(matrix=fitz.Matrix(dpi/72, dpi/72))
         
         # 画像ファイル名を生成
-        image_serialnum = output_startnum + page_num
-        image_filename = f"{image_serialnum:07d}.{format}"
+        imagenum_current = imagenum_start + page_num
+        image_filename = f"{imagenum_current:07d}.{format}"
         image_path = os.path.join(images_dir, image_filename)
         
         # 画像を保存
@@ -202,6 +204,7 @@ async def process_single_pdf(session_id: str, job_id: str, pdf_path: str, dpi: i
         job_status_manager.update_status(job_id, status)
     
     # PDFを閉じる
+    session_status_manager.add_imagenum(total_pages)
     pdf_document.close()
     
     return images_dir, image_paths
@@ -233,7 +236,7 @@ def create_zip_file(image_paths: List[str], job_id: str) -> str:
     return zip_path
 
 # 複数のPDFファイルを処理する関数を追加
-async def process_multiple_pdfs(session_id: str, job_id: str, pdf_paths: List[str], dpi: int = 300, format: str = "jpeg") -> Tuple[str, List[str]]:
+async def process_multiple_pdfs(session_id: str, job_id: str, pdf_paths: List[str], dpi: int = 300, format: str = "jpeg", imagenum_start: int = 1) -> Tuple[str, List[str]]:
     """
     複数のPDFファイルを処理し、1つのZIPファイルにまとめる
     
@@ -263,7 +266,7 @@ async def process_multiple_pdfs(session_id: str, job_id: str, pdf_paths: List[st
         total_files = len(pdf_paths)
         for i, pdf_path in enumerate(pdf_paths, 1):
             # PDFファイルを処理
-            _, image_paths = await process_single_pdf(session_id, job_id, pdf_path, dpi, format, images_dir, 1)
+            _, image_paths = await process_single_pdf(session_id, job_id, pdf_path, dpi, format, images_dir)
             all_image_paths.extend(image_paths)
             
             # 全体の進捗を更新

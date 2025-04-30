@@ -182,7 +182,7 @@ async def process_single_pdf(session_id: str, job_id: str, pdf_path: str, dpi: i
         
         # 画像ファイル名を生成
         image_serialnum = output_startnum + page_num
-        image_filename = f"{image_serialnum:04d}.{format}"
+        image_filename = f"{image_serialnum:07d}.{format}"
         image_path = os.path.join(images_dir, image_filename)
         
         # 画像を保存

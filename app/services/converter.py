@@ -151,16 +151,17 @@ async def convert_pdf_to_images(
         job_status_manager.update_status(job_id, error_status)
         raise
 
-async def process_single_pdf(job_id: str, pdf_path: str, dpi: int, format: str, output_dir: str, output_startnum: int,) -> Tuple[str, List[str]]:
+async def process_single_pdf(session_id: str, job_id: str, pdf_path: str, dpi: int, format: str, images_dir: str, output_startnum: int,) -> Tuple[str, List[str]]:
     """
     単一のPDFファイルを画像に変換する
     
     Args:
+        session_id: セッションID
         job_id: ジョブID
         pdf_path: PDFファイルのパス
         dpi: 出力画像のDPI
         format: 出力画像のフォーマット
-        output_dir: 出力ディレクトリ
+        images_dir: 出力ディレクトリ
         output_startnum: 出力ファイルの連番開始番号 
         
     Returns:
@@ -182,7 +183,7 @@ async def process_single_pdf(job_id: str, pdf_path: str, dpi: int, format: str, 
         # 画像ファイル名を生成
         image_serialnum = output_startnum + page_num
         image_filename = f"{image_serialnum:04d}.{format}"
-        image_path = os.path.join(output_dir, image_filename)
+        image_path = os.path.join(images_dir, image_filename)
         
         # 画像を保存
         pix.save(image_path)
@@ -191,6 +192,7 @@ async def process_single_pdf(job_id: str, pdf_path: str, dpi: int, format: str, 
         # 進捗を更新
         progress = (page_num + 1) / total_pages * 100
         status = JobStatus(
+            session_id=session_id,
             job_id=job_id,
             status="processing",
             message=f"ページ変換完了: {page_num + 1}/{total_pages}",
@@ -202,7 +204,7 @@ async def process_single_pdf(job_id: str, pdf_path: str, dpi: int, format: str, 
     # PDFを閉じる
     pdf_document.close()
     
-    return output_dir, image_paths
+    return images_dir, image_paths
 
 # ZIPファイルの作成
 def create_zip_file(image_paths: List[str], job_id: str) -> str:
@@ -231,11 +233,12 @@ def create_zip_file(image_paths: List[str], job_id: str) -> str:
     return zip_path
 
 # 複数のPDFファイルを処理する関数を追加
-async def process_multiple_pdfs(job_id: str, pdf_paths: List[str], dpi: int = 300, format: str = "jpeg") -> Tuple[str, List[str]]:
+async def process_multiple_pdfs(session_id: str, job_id: str, pdf_paths: List[str], dpi: int = 300, format: str = "jpeg") -> Tuple[str, List[str]]:
     """
     複数のPDFファイルを処理し、1つのZIPファイルにまとめる
     
     Args:
+        session_id: セッションID
         job_id: ジョブID
         pdf_paths: PDFファイルのパスリスト
         dpi: 出力画像のDPI
@@ -247,11 +250,11 @@ async def process_multiple_pdfs(job_id: str, pdf_paths: List[str], dpi: int = 30
     try:
         # 常にJPEGとして処理
         format = "jpeg"
-        logger.info(f"複数PDF変換開始: job_id={job_id}, pdf_count={len(pdf_paths)}, dpi={dpi}")
+        logger.info(f"複数PDF変換開始: session_id={session_id}, job_id={job_id}, pdf_count={len(pdf_paths)}, dpi={dpi}")
         
         # 出力ディレクトリの作成
-        output_dir = os.path.join(settings.get_storage_path(job_id), "images")
-        os.makedirs(output_dir, exist_ok=True)
+        images_dir = os.path.join(settings.get_session_dirpath(session_id), "images")
+        os.makedirs(images_dir, exist_ok=True)
         
         # すべての画像ファイルのパスを保持
         all_image_paths = []
@@ -260,12 +263,13 @@ async def process_multiple_pdfs(job_id: str, pdf_paths: List[str], dpi: int = 30
         total_files = len(pdf_paths)
         for i, pdf_path in enumerate(pdf_paths, 1):
             # PDFファイルを処理
-            _, image_paths = await process_single_pdf(job_id, pdf_path, dpi, format, output_dir, 1)
+            _, image_paths = await process_single_pdf(session_id, job_id, pdf_path, dpi, format, images_dir, 1)
             all_image_paths.extend(image_paths)
             
             # 全体の進捗を更新
             total_progress = (i / total_files) * 100
             status = JobStatus(
+                session_id=session_id,
                 job_id=job_id,
                 status="processing",
                 message=f"PDFファイル {i}/{total_files} を処理中",
@@ -274,19 +278,21 @@ async def process_multiple_pdfs(job_id: str, pdf_paths: List[str], dpi: int = 30
             )
             job_status_manager.update_status(job_id, status)
         
-        # すべての画像を1つのZIPファイルにまとめる
-        zip_filename = f"all_pdfs_images.zip"
-        zip_path = os.path.join(settings.get_storage_path(job_id), zip_filename)
+        # TODO: zip化は停止、いずれ外に出す
+        # # すべての画像を1つのZIPファイルにまとめる
+        # zip_filename = f"all_pdfs_images.zip"
+        # zip_path = os.path.join(settings.get_storage_path(job_id), zip_filename)
         
-        with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
-            for image_path in all_image_paths:
-                # ファイル名のみを取得（ディレクトリパスを除外）
-                arcname = os.path.basename(image_path)
-                # UTF-8でファイル名を保存
-                zipf.write(image_path, arcname)
+        # with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        #     for image_path in all_image_paths:
+        #         # ファイル名のみを取得（ディレクトリパスを除外）
+        #         arcname = os.path.basename(image_path)
+        #         # UTF-8でファイル名を保存
+        #         zipf.write(image_path, arcname)
         
         # 完了ステータスを設定
         complete_status = JobStatus(
+            session_id=session_id,
             job_id=job_id,
             status="completed",
             message="すべてのファイルの変換が完了しました",
@@ -295,13 +301,14 @@ async def process_multiple_pdfs(job_id: str, pdf_paths: List[str], dpi: int = 30
         )
         job_status_manager.update_status(job_id, complete_status)
         
-        return output_dir, all_image_paths
+        return images_dir, all_image_paths
         
     except Exception as e:
         # エラーが発生した場合、ステータスを更新
         error_message = f"変換中にエラーが発生しました: {str(e)}"
         logger.error(f"エラー発生: job_id={job_id}, error={str(e)}")
         error_status = JobStatus(
+            session_id=session_id,
             job_id=job_id,
             status="error",
             message=error_message,

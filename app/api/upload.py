@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, UploadFile, File
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
-from app.models.schemas import UploadRequest, SessionResponse, UploadResponse, JobStatus, DownloadResponse
+from app.models.schemas import UploadRequest, SessionResponse, UploadResponse, SessionStatus, JobStatus, DownloadResponse
 from app.services.storage import generate_session_url, generate_upload_url, generate_download_url
 import os
 from app.core.config import get_settings
@@ -32,7 +32,16 @@ def get_session_id():
     try:
         session_url, session_id = generate_session_url()
         # TODO: 正式にはフロントから開始番号を取得
-        session_status_manager.set_imagenum(1)
+        initial_session = SessionStatus(
+            session_id=session_id,
+            status="pending",
+            progress=0.0,
+            created_at=datetime.now(),
+            pdf_num=1,
+            image_num=1,
+            message="セッションを初期化しました"
+        )
+        session_status_manager.update_status(session_id, initial_session)
         return SessionResponse(
             session_id=session_id
         )

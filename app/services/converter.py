@@ -175,7 +175,7 @@ async def process_single_pdf(session_id: str, job_id: str, pdf_path: str, dpi: i
     total_pages = len(pdf_document)
     image_paths = []
 
-    imagenum_start = session_status_manager.get_imagenum()
+    imagenum_start = session_status_manager.get_imagenum(session_id)
     
     # 各ページを画像に変換
     for page_num in range(total_pages):
@@ -204,7 +204,7 @@ async def process_single_pdf(session_id: str, job_id: str, pdf_path: str, dpi: i
         job_status_manager.update_status(job_id, status)
     
     # PDFを閉じる
-    session_status_manager.add_imagenum(total_pages)
+    session_status_manager.add_imagenum(session_id, total_pages)
     pdf_document.close()
     
     return images_dir, image_paths

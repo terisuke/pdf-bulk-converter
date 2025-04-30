@@ -2,19 +2,9 @@ from typing import Dict, Optional
 from datetime import datetime
 from pydantic import BaseModel
 import logging
+from app.models.schemas import JobStatus
 
 logger = logging.getLogger(__name__)
-
-class JobStatus(BaseModel):
-    session_id: str
-    job_id: str
-    status: str  # "pending", "processing", "completed", "failed"
-    message: str
-    progress: float  # 0-100
-    created_at: datetime
-    total_files: Optional[int] = None
-    processed_files: Optional[int] = None
-    current_file: Optional[str] = None
 
 class JobStatusManager:
     def __init__(self):

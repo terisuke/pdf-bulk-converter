@@ -23,7 +23,9 @@ class SessionStatus(BaseModel):
     status: str
     message: str
     progress: float
+    pdf_num: int
     image_num: int
+    created_at: datetime
 
 class JobStatus(BaseModel):
     session_id: str

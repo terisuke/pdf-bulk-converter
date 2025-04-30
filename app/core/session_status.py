@@ -1,50 +1,43 @@
 from typing import Dict, Optional
 from datetime import datetime
 from pydantic import BaseModel
+from app.models.schemas import SessionStatus
+
 import logging
-
 logger = logging.getLogger(__name__)
-
-class SessionStatus(BaseModel):
-    session_id: str
-    status: str  # "pending", "processing", "completed", "failed"
-    message: str
-    progress: float  # 0-100
-    image_num: int
-    # created_at: datetime
-    # total_files: Optional[int] = None
-    # processed_files: Optional[int] = None
-    # current_file: Optional[str] = None
 
 class SessionStatusManager:
     def __init__(self):
-        self.statuses: Dict[str, SessionStatus] = {}
+        self._statuses: Dict[str, SessionStatus] = {}
     
-    def update_status(self, status: SessionStatus):
+    def update_status(self, session_id: str, status: SessionStatus):
         """セッションのステータスを更新"""
-        self.statuses = status
+        self._statuses[session_id] = status
         logger.info(f"セッションのステータスを更新: {status.status} ({status.progress:.2f}%)")
     
-    def get_status(self) -> Optional[SessionStatus]:
+    def get_status(self, session_id: str) -> Optional[SessionStatus]:
         """セッションのステータスを取得"""
-        return self.statuses.get()
+        return self._statuses.get(session_id)
     
-    def update_progress(self, progress: float, message: Optional[str] = None):
-        self.progress = progress
-        if message:
-            self.message = message
-        logger.info(f"セッションの進捗を更新: {progress:.2f}%")
+    def update_progress(self, session_id: str, progress: float, message: Optional[str] = None):
+        if session_id in self._statuses:
+            status = self._statuses[session_id]
+            status.progress = progress
+            if message:
+                status.message = message
+            self._statuses[session_id] = status
+            logger.info(f"セッション {session_id} の進捗を更新: {progress:.2f}%")
 
-    def add_imagenum(self, image_cnt: int):
-        self.image_num += image_cnt
-        logger.info(f"画像連番を更新: {self.image_num:07d}")
+    def add_imagenum(self, session_id: str, image_cnt: int):
+        self._statuses.get(session_id).image_num += image_cnt
+        logger.info(f"画像連番を更新: {self._statuses.get(session_id).image_num:07d}")
 
-    def set_imagenum(self, image_num: int):
-        self.image_num = image_num
-        logger.info(f"画像連番を更新: {self.image_num:07d}")
+    def set_imagenum(self, session_id: str, image_num: int):
+        self._statuses.get(session_id).image_num = image_num
+        logger.info(f"画像連番を更新: {self._statuses.get(session_id).image_num:07d}")
 
-    def get_imagenum(self) -> int:
-        return self.image_num
+    def get_imagenum(self, session_id: str) -> int:
+        return self._statuses.get(session_id).image_num
 
 # シングルトンインスタンスを作成
 session_status_manager = SessionStatusManager() 

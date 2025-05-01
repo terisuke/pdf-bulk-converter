@@ -310,8 +310,8 @@ async def process_multiple_pdfs(session_id: str, job_id: str, pdf_paths: List[st
         complete_status = JobStatus(
             session_id=session_id,
             job_id=job_id,
-            status="completed",
-            message=f"ジョブ {job_id} のファイルの変換が完了しました",
+            status="converted",
+            message=f"ジョブ {job_id} のファイルの画像変換が完了しました",
             progress=100,
             created_at=datetime.now()
         )

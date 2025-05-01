@@ -149,25 +149,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (status === 'completed') {
             eventSource.close();
-            
-            // ダウンロードURLを取得
-            fetch(`/api/download/${currentJobId}`)
-                .then(response => {
-                    if (response.ok) {
-                        return response.json();
-                    } else {
-                        throw new Error('ダウンロードURLの取得に失敗しました');
-                    }
-                })
-                .then(downloadData => {
-                    downloadLink.href = downloadData.download_url;
-                    progressDiv.classList.add('hidden');
-                    resultDiv.classList.remove('hidden');
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    progressText.textContent = '変換は完了しましたが、ダウンロードURLの取得に失敗しました。';
-                });
         } else if (status === 'error') {
             eventSource.close();
             alert('エラーが発生しました: ' + message);

@@ -241,6 +241,7 @@ async def local_upload(
 @router.post("/create-zip/{session_id}")
 async def create_zip(session_id: str):
     try:
+        # HACK: 画像ディレクトリがセッション配下images固定状態。できればconvert_pdfs_to_imagesの戻り値を受け取りたい
         session_dirpath = settings.get_session_dirpath(session_id)
         images_dirpath = os.path.join(session_dirpath, "images")
         if not os.path.exists(images_dirpath):

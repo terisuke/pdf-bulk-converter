@@ -34,7 +34,7 @@ def get_session_id():
         # TODO: 正式にはフロントから開始番号を取得
         initial_session = SessionStatus(
             session_id=session_id,
-            status="pending",
+            status="uploading",
             progress=0.0,
             created_at=datetime.now(),
             pdf_num=1,
@@ -411,3 +411,28 @@ async def process_multiple_files(session_id: str, job_id: str, file_paths: List[
             created_at=datetime.now()
         )
         job_status_manager.update_status(job_id, error_status)            
+
+@router.put("/session-update/{session_id}")
+async def update_session_status(session_id: str, status_update: dict):
+    """セッションのステータスを更新"""
+    try:
+        current_status = session_status_manager.get_status(session_id)
+        if current_status is None:
+            raise HTTPException(status_code=404, detail="Session not found")
+        
+        # 現在のステータスを保持しながら、新しいステータスで更新
+        updated_status = SessionStatus(
+            session_id=session_id,
+            status=status_update.get("status", current_status.status),
+            message=status_update.get("message", current_status.message),
+            progress=status_update.get("progress", current_status.progress),
+            pdf_num=current_status.pdf_num,
+            image_num=current_status.image_num,
+            created_at=datetime.now()
+        )
+        
+        session_status_manager.update_status(session_id, updated_status)
+        return {"message": "Session status updated successfully"}
+    except Exception as e:
+        logger.error(f"セッションステータス更新エラー: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))            

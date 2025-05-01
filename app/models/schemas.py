@@ -20,7 +20,7 @@ class UploadResponse(BaseModel):
 
 class SessionStatus(BaseModel):
     session_id: str
-    status: str     # "pending", "processing", "converted", "completed", "failed"
+    status: str     # "uploading", "converting", "zipping", "completed", "failed"
     message: str
     progress: float
     pdf_num: int
@@ -39,4 +39,9 @@ class JobStatus(BaseModel):
 
 class DownloadResponse(BaseModel):
     download_url: str
-    expires_at: datetime 
+    expires_at: datetime
+
+class SessionStatusUpdateRequest(BaseModel):
+    status: str
+    message: Optional[str] = None
+    progress: Optional[float] = None 

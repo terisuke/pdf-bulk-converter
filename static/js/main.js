@@ -80,6 +80,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
+            // アップロード完了後、セッションのステータスを"converting"に更新
+            const updateSessionStatus = await fetch(`/api/session-update/${currentSessionId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    status: 'converting'
+                })
+            });
+            if (!updateSessionStatus.ok) {
+                throw new Error('セッションステータスの更新に失敗しました');
+            }
+
             // Server-Sent Eventsで進捗を監視
             if (eventSource) {
                 eventSource.close();

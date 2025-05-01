@@ -120,39 +120,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error('ZIPファイルの生成に失敗しました');
             }
 
-            // ZIPファイル生成の進捗を監視
-            if (eventSource) {
-                eventSource.close();
-            }
-            eventSource = new EventSource(`/api/session-status/${currentSessionId}`);
-            eventSource.onmessage = (event) => {
-                const data = JSON.parse(event.data);
-                updateProgress(data);
-            };
-            eventSource.onerror = () => {
-                eventSource.close();
-            };
-
-            
-            // 変換が完了するまで待機
-            await new Promise(resolve => {
-                const checkStatus = async () => {
-                    const statusResponse = await fetch(`/api/job-status/${currentSessionId}`);
-                    if (statusResponse.ok) {
-                        const statusData = await statusResponse.json();
-                        if (statusData.status === 'completed') {
-                            resolve();
-                        } else if (statusData.status === 'error') {
-                            throw new Error(statusData.message || '変換中にエラーが発生しました');
-                        } else {
-                            setTimeout(checkStatus, 1000);
-                        }
-                    } else {
-                        throw new Error('ステータスの取得に失敗しました');
-                    }
-                };
-                checkStatus();
-            });
+            // ZIPファイルの生成が完了するまで少し待機
+            await new Promise(resolve => setTimeout(resolve, 1000));
 
             // ダウンロードURLを取得
             const downloadResponse = await fetch(`/api/download/${currentSessionId}`);

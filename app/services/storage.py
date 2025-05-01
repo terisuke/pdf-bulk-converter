@@ -57,10 +57,15 @@ def generate_download_url(session_id: str) -> str:
     if settings.environment == "local":
         # ローカルモード: 一時的なダウンロードパスを返す
         session_dirpath = settings.get_session_dirpath(session_id)
-        zip_filename = f"{session_id}_images.zip"
-        zip_path = os.path.join(session_dirpath, zip_filename)
         
-        if not os.path.exists(zip_path):
+        # 両方のファイル名パターンをチェック
+        zip_filename = None
+        for filename in ["all_pdfs_images.zip", f"{session_id}_images.zip"]:
+            if os.path.exists(os.path.join(session_dirpath, filename)):
+                zip_filename = filename
+                break
+        
+        if not zip_filename:
             raise ValueError("ZIP file not found")
         
         # URLエンコードされたファイル名を使用

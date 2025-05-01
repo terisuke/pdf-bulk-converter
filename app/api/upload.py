@@ -85,6 +85,34 @@ async def get_upload_url(request: UploadRequest):
         logger.error(f"アップロードURL生成エラー: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/session-status/{session_id}")
+async def get_session_status(session_id: str):
+    """セッションのステータスを取得（SSE）"""
+    async def event_generator():
+        while True:
+            status = session_status_manager.get_status(session_id)
+            if status is None:
+                break
+            status_dict = {
+                "status": status.status,
+                "message": status.message,
+                "progress": status.progress,
+                "created_at": status.created_at.isoformat() if status.created_at else None
+            }
+            yield f"data: {json.dumps(status_dict)}\n\n"
+            if status.status in ["completed", "error"]:
+                break
+            await asyncio.sleep(1)
+    
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        }
+    )    
+
 @router.get("/job-status/{job_id}")
 async def get_job_status(job_id: str):
     """ジョブのステータスを取得（SSE）"""

@@ -121,6 +121,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // ZIPファイルの生成が完了するまで少し待機
+            // HACK: ひとまず1秒待ち。以前のPDF→画像変換と同様、完了を検知して制御するようにしたい
             await new Promise(resolve => setTimeout(resolve, 1000));
 
             // ダウンロードURLを取得

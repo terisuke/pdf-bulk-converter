@@ -11,7 +11,7 @@ from fastapi import BackgroundTasks
 from urllib.parse import unquote
 from app.core.job_status import job_status_manager
 from app.core.session_status import session_status_manager
-from app.services.converter import process_multiple_pdfs, create_zip_file
+from app.services.converter import convert_pdfs_to_images, create_zip_file
 import logging
 from typing import Optional, List
 import uuid
@@ -30,14 +30,13 @@ pending_files = {}
 def get_session_id():
     try:
         session_url, session_id = generate_session_url()
-        # TODO: 正式にはフロントから開始番号を取得
         initial_session = SessionStatus(
             session_id=session_id,
             status="uploading",
             progress=0.0,
             created_at=datetime.now(),
-            pdf_num=1,
-            image_num=1,
+            pdf_num=1,      # NOTE: PDF格納先を連番にする場合に使用を想定
+            image_num=1,    # TODO: フロントから開始番号を取得
             message="セッションを初期化しました"
         )
         session_status_manager.update_status(session_id, initial_session)
@@ -192,7 +191,7 @@ async def local_upload(
                 
                 if pdf_files:
                     background_tasks.add_task(
-                        process_multiple_pdfs,
+                        convert_pdfs_to_images,
                         session_id=session_id,
                         job_id=job_id,
                         pdf_paths=pdf_files,

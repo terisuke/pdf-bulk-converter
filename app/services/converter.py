@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 settings = get_settings()
 
-async def process_single_pdf(session_id: str, job_id: str, pdf_path: str, dpi: int, format: str, images_dir: str,) -> Tuple[str, List[str]]:
+async def convert_1pdf_to_images(session_id: str, job_id: str, pdf_path: str, dpi: int, format: str, images_dir: str,) -> Tuple[str, List[str]]:
     """
     単一のPDFファイルを画像に変換する
     
@@ -113,9 +113,9 @@ def create_zip_file(session_id: str, image_paths: List[str]) -> str:
     return zip_path
 
 # 複数のPDFファイルを処理する関数を追加
-async def process_multiple_pdfs(session_id: str, job_id: str, pdf_paths: List[str], dpi: int = 300, format: str = "jpeg", imagenum_start: int = 1) -> Tuple[str, List[str]]:
+async def convert_pdfs_to_images(session_id: str, job_id: str, pdf_paths: List[str], dpi: int = 300, format: str = "jpeg") -> Tuple[str, List[str]]:
     """
-    複数のPDFファイルを処理し、1つのZIPファイルにまとめる
+    PDFファイルを画像変換する (複数対応)
     
     Args:
         session_id: セッションID
@@ -123,9 +123,10 @@ async def process_multiple_pdfs(session_id: str, job_id: str, pdf_paths: List[st
         pdf_paths: PDFファイルのパスリスト
         dpi: 出力画像のDPI
         format: 出力形式（常にjpeg）
+        imagenum_start: 
     
     Returns:
-        Tuple[ZIPファイルパス, 生成された画像ファイルのパスリスト]
+        Tuple[画像格納ディレクトリ, 生成された画像ファイルのパスリスト]
     """
     try:
         # 常にJPEGとして処理
@@ -143,7 +144,7 @@ async def process_multiple_pdfs(session_id: str, job_id: str, pdf_paths: List[st
         total_files = len(pdf_paths)
         for i, pdf_path in enumerate(pdf_paths, 1):
             # PDFファイルを処理
-            _, image_paths = await process_single_pdf(session_id, job_id, pdf_path, dpi, format, images_dir)
+            _, image_paths = await convert_1pdf_to_images(session_id, job_id, pdf_path, dpi, format, images_dir)
             all_image_paths.extend(image_paths)
             
             # 全体の進捗を更新
@@ -157,18 +158,6 @@ async def process_multiple_pdfs(session_id: str, job_id: str, pdf_paths: List[st
                 created_at=datetime.now()
             )
             job_status_manager.update_status(job_id, status)
-        
-        # TODO: zip化は停止、いずれ外に出す
-        # # すべての画像を1つのZIPファイルにまとめる
-        # zip_filename = f"all_pdfs_images.zip"
-        # zip_path = os.path.join(settings.get_storage_path(job_id), zip_filename)
-        
-        # with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
-        #     for image_path in all_image_paths:
-        #         # ファイル名のみを取得（ディレクトリパスを除外）
-        #         arcname = os.path.basename(image_path)
-        #         # UTF-8でファイル名を保存
-        #         zipf.write(image_path, arcname)
         
         # 完了ステータスを設定
         complete_status = JobStatus(

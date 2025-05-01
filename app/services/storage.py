@@ -57,20 +57,20 @@ def generate_download_url(session_id: str) -> str:
     if settings.environment == "local":
         # ローカルモード: 一時的なダウンロードパスを返す
         session_dirpath = settings.get_session_dirpath(session_id)
-        # storage_path = settings.get_storage_path(session_id, job_id)
-        # _images.zipで終わるファイルまたはall_pdfs_images.zipを検索
-        zip_files = [f for f in os.listdir(session_dirpath) if f.endswith("_images.zip") or f == "all_pdfs_images.zip"]
-        if not zip_files:
+        zip_filename = f"{session_id}_images.zip"
+        zip_path = os.path.join(session_dirpath, zip_filename)
+        
+        if not os.path.exists(zip_path):
             raise ValueError("ZIP file not found")
         
         # URLエンコードされたファイル名を使用
         from urllib.parse import quote
-        encoded_filename = quote(zip_files[0])
+        encoded_filename = quote(zip_filename)
         return f"/local-download/{session_id}/{encoded_filename}"
     # else:
     #     # クラウドモード: 署名付きURLを生成
     #     bucket = client.bucket(settings.bucket_zip)
-    #     blob = bucket.blob(f"{job_id}/output.zip")
+    #     blob = bucket.blob(f"{session_id}/output.zip")
     #     
     #     url = blob.generate_signed_url(
     #         version="v4",
@@ -80,7 +80,6 @@ def generate_download_url(session_id: str) -> str:
     #     
     #     return url
     # 開発中はローカルモードのみ対応
-    # ローカルモードでも見つかったZIPファイルを使用
 
 def cleanup_job(job_id: str):
     """ジョブ関連のファイルをクリーンアップ"""

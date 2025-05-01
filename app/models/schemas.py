@@ -20,7 +20,7 @@ class UploadResponse(BaseModel):
 
 class SessionStatus(BaseModel):
     session_id: str
-    status: str
+    status: str     # "pending", "processing", "converted", "completed", "failed"
     message: str
     progress: float
     pdf_num: int
@@ -30,7 +30,7 @@ class SessionStatus(BaseModel):
 class JobStatus(BaseModel):
     session_id: str
     job_id: str
-    status: str
+    status: str     # "pending", "processing", "converted", "completed", "failed"
     progress: float
     created_at: datetime
     completed_at: Optional[datetime] = None

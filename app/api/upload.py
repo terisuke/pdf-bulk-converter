@@ -11,7 +11,7 @@ from fastapi import BackgroundTasks
 from urllib.parse import unquote
 from app.core.job_status import job_status_manager
 from app.core.session_status import session_status_manager
-from app.services.converter import convert_pdf_to_images, process_multiple_pdfs
+from app.services.converter import convert_pdf_to_images, process_multiple_pdfs, create_zip_file
 import logging
 from typing import Optional, List
 import uuid
@@ -211,12 +211,28 @@ async def local_upload(
             status_code=500,
             detail=f"ファイルのアップロード中にエラーが発生しました: {str(e)}"
         )
+    
+@local_router.post("/create-zip/{session_id}")
+async def create_zip(session_id: str):
+    try:
+        session_dirpath = settings.get_session_dirpath(session_id)
+        images_dirpath = os.path.join(session_dirpath, "images")
+        if not os.path.exists(images_dirpath):
+            logger.error(f"画像ディレクトリがありません: {images_dirpath}")
+            raise HTTPException(status_code=404, detail="File not found")
+        
+        image_paths = [f for f in os.listdir(images_dirpath)]
+        create_zip_file(session_id, image_paths)
+        
+    except Exception as e:
+        logger.error(f"ZIP作成エラー: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
-@local_router.get("/local-download/{session_id}/{job_id}/{filename}")
+@local_router.get("/local-download/{session_id}/{filename}")
 async def local_download(session_id: str, job_id: str, filename: str):
     """ローカル環境でのファイルダウンロード用エンドポイント"""
     try:
-        file_path = os.path.join(settings.get_storage_path(session_id, job_id), filename)
+        file_path = os.path.join(settings.get_session_dirpath(session_id), filename)
         logger.info(f"ダウンロード要求: {file_path}")
         
         if not os.path.exists(file_path):

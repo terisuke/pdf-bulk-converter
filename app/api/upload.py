@@ -232,25 +232,25 @@ async def local_download(session_id: str, job_id: str, filename: str):
         logger.error(f"ダウンロードエラー: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/download/{session_id}/{job_id}", response_model=DownloadResponse)
-async def get_download_url(session_id: str, job_id: str):
+@router.get("/download/{session_id}", response_model=DownloadResponse)
+async def get_download_url(session_id: str):
     """ダウンロード用のURLを取得"""
     try:
-        status = job_status_manager.get_status(job_id)
+        status = session_status_manager.get_status(session_id)
         
-        # ジョブが完了していない場合はエラー
-        if status.status != "completed":
-            raise HTTPException(status_code=400, detail="Job not completed yet")
+        # # ジョブが完了していない場合はエラー
+        # if status.status != "completed":
+        #     raise HTTPException(status_code=400, detail="Job not completed yet")
         
         # ZIPファイル名を取得
-        storage_path = settings.get_storage_path(session_id, job_id)
+        session_dirpath = settings.get_session_dirpath(session_id)
         # _images.zipで終わるファイルまたはall_pdfs_images.zipを検索
-        zip_files = [f for f in os.listdir(storage_path) if f.endswith("_images.zip") or f == "all_pdfs_images.zip"]
+        zip_files = [f for f in os.listdir(session_dirpath) if f.endswith("_images.zip") or f == "all_pdfs_images.zip"]
         if not zip_files:
             raise HTTPException(status_code=404, detail="ZIP file not found")
         
         # ダウンロードURLを生成
-        download_url = generate_download_url(job_id)
+        download_url = generate_download_url(session_id)
         expires_at = datetime.now() + timedelta(seconds=settings.sign_url_exp)
         
         return DownloadResponse(

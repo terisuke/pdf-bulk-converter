@@ -86,7 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 eventSource.close();
             }
 
-            eventSource = new EventSource(`/api/job-status/${currentJobId}`);
+            eventSource = new EventSource(`/api/session-status/${currentSessionId}`);
             eventSource.onmessage = (event) => {
                 const data = JSON.parse(event.data);
                 updateProgress(data);

@@ -108,10 +108,36 @@ document.addEventListener('DOMContentLoaded', () => {
                 eventSource.close();
             };
 
+            // 変換完了後、ZIPファイルの生成をリクエスト
+            const zipResponse = await fetch(`/api/create-zip/${currentSessionId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!zipResponse.ok) {
+                throw new Error('ZIPファイルの生成に失敗しました');
+            }
+
+            // ZIPファイル生成の進捗を監視
+            if (eventSource) {
+                eventSource.close();
+            }
+            eventSource = new EventSource(`/api/session-status/${currentSessionId}`);
+            eventSource.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                updateProgress(data);
+            };
+            eventSource.onerror = () => {
+                eventSource.close();
+            };
+
+            
             // 変換が完了するまで待機
             await new Promise(resolve => {
                 const checkStatus = async () => {
-                    const statusResponse = await fetch(`/api/job-status/${currentJobId}`);
+                    const statusResponse = await fetch(`/api/job-status/${currentSessionId}`);
                     if (statusResponse.ok) {
                         const statusData = await statusResponse.json();
                         if (statusData.status === 'completed') {

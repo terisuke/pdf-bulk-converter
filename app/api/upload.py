@@ -239,7 +239,7 @@ async def local_upload(
             detail=f"ファイルのアップロード中にエラーが発生しました: {str(e)}"
         )
     
-@local_router.post("/create-zip/{session_id}")
+@router.post("/create-zip/{session_id}")
 async def create_zip(session_id: str):
     try:
         session_dirpath = settings.get_session_dirpath(session_id)
@@ -248,7 +248,8 @@ async def create_zip(session_id: str):
             logger.error(f"画像ディレクトリがありません: {images_dirpath}")
             raise HTTPException(status_code=404, detail="File not found")
         
-        image_paths = [f for f in os.listdir(images_dirpath)]
+        # 画像ファイルの完全なパスを取得
+        image_paths = [os.path.join(images_dirpath, f) for f in os.listdir(images_dirpath)]
         create_zip_file(session_id, image_paths)
         
     except Exception as e:

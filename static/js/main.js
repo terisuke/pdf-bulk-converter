@@ -41,7 +41,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 const file = files[i];
                 progressText.textContent = `ファイル ${i + 1}/${files.length} をアップロード中...`;
 
-                // 最初のファイル以外は新しいアップロードURLを取得
                 const res_upload_job = await fetch('/api/upload-url/', {
                     method: 'POST',
                     headers: {

@@ -257,7 +257,7 @@ async def create_zip(session_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @local_router.get("/local-download/{session_id}/{filename}")
-async def local_download(session_id: str, job_id: str, filename: str):
+async def local_download(session_id: str, filename: str):
     """ローカル環境でのファイルダウンロード用エンドポイント"""
     try:
         file_path = os.path.join(settings.get_session_dirpath(session_id), filename)

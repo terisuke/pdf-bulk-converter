@@ -155,7 +155,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             // ダウンロードURLを取得
-            const downloadResponse = await fetch(`/api/download/${currentJobId}`);
+            const downloadResponse = await fetch(`/api/download/${currentSessionId}`);
             
             if (downloadResponse.ok) {
                 const downloadData = await downloadResponse.json();

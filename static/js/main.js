@@ -36,58 +36,31 @@ document.addEventListener('DOMContentLoaded', () => {
             const sessionData = await res_session.json();
             currentSessionId = sessionData.session_id;
 
-            // 最初のファイルのアップロードURLを取得
-            const firstFile = files[0];
-            const res_firstjob = await fetch('/api/upload-url', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    session_id: currentSessionId,
-                    filename: firstFile.name,
-                    content_type: firstFile.type,
-                    dpi: parseInt(dpi),
-                    format: "jpeg"
-                })
-            });
-
-            if (!res_firstjob.ok) {
-                throw new Error('アップロードURLの取得に失敗しました');
-            }
-
-            const { upload_url, session_id, job_id } = await res_firstjob.json();
-            currentJobId = job_id;
-
             // すべてのファイルをアップロード
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
                 progressText.textContent = `ファイル ${i + 1}/${files.length} をアップロード中...`;
 
                 // 最初のファイル以外は新しいアップロードURLを取得
-                let uploadUrl = upload_url;
-                if (i > 0) {
-                    const res_nextjob = await fetch('/api/upload-url/', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            session_id: currentSessionId,
-                            filename: file.name,
-                            content_type: file.type,
-                            dpi: parseInt(dpi),
-                            format: "jpeg"
-                        })
-                    });
-
-                    if (!res_nextjob.ok) {
-                        throw new Error('アップロードURLの取得に失敗しました');
-                    }
-
-                    const urlData = await res_nextjob.json();
-                    uploadUrl = urlData.upload_url;
+                const res_upload_job = await fetch('/api/upload-url/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        session_id: currentSessionId,
+                        filename: file.name,
+                        content_type: file.type,
+                        dpi: parseInt(dpi),
+                        format: "jpeg"
+                    })
+                });
+                if (!res_upload_job.ok) {
+                    throw new Error('アップロードURLの取得に失敗しました');
                 }
+                const urlData = await res_upload_job.json();
+                uploadUrl = urlData.upload_url;
+                if (i == 0) {currentJobId = urlData.job_id}
 
                 // ファイルをアップロード
                 const formData = new FormData();
@@ -113,7 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 eventSource.close();
             }
 
-            eventSource = new EventSource(`/api/status/${currentJobId}`);
+            eventSource = new EventSource(`/api/job-status/${currentJobId}`);
             eventSource.onmessage = (event) => {
                 const data = JSON.parse(event.data);
                 updateProgress(data);
@@ -125,7 +98,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // 変換が完了するまで待機
             await new Promise(resolve => {
                 const checkStatus = async () => {
-                    const statusResponse = await fetch(`/api/status/${currentJobId}`);
+                    const statusResponse = await fetch(`/api/job-status/${currentJobId}`);
                     if (statusResponse.ok) {
                         const statusData = await statusResponse.json();
                         if (statusData.status === 'completed') {

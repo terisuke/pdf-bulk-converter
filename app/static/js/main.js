@@ -1,5 +1,5 @@
 async function checkJobStatus(jobId) {
-    const eventSource = new EventSource(`/api/status/${jobId}`);
+    const eventSource = new EventSource(`/api/job-status/${jobId}`);
     
     eventSource.onmessage = function(event) {
         const status = JSON.parse(event.data);

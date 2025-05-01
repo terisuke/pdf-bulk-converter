@@ -85,7 +85,7 @@ async def get_upload_url(request: UploadRequest):
         logger.error(f"アップロードURL生成エラー: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/status/{job_id}")
+@router.get("/job-status/{job_id}")
 async def get_job_status(job_id: str):
     """ジョブのステータスを取得（SSE）"""
     async def event_generator():

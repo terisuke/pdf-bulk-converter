@@ -3,7 +3,6 @@ import os
 import shutil
 import uuid
 from pathlib import Path
-from app.services.converter import convert_pdf_to_images
 from app.core.config import get_settings
 from app.core.process import process_input
 from app.core.job_status import job_status_manager

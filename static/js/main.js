@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const resultDiv = document.getElementById('result');
     const downloadLink = document.getElementById('downloadLink');
 
+    let currentSessionId = null;
     let currentJobId = null;
     let eventSource = null;
 
@@ -24,58 +25,41 @@ document.addEventListener('DOMContentLoaded', () => {
             // 進捗表示を開始
             progressDiv.classList.remove('hidden');
             resultDiv.classList.add('hidden');
-            progressText.textContent = 'ファイルをアップロード中...';
 
-            // 最初のファイルのアップロードURLを取得
-            const firstFile = files[0];
-            const response = await fetch('/api/upload-url', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    filename: firstFile.name,
-                    content_type: firstFile.type,
-                    dpi: parseInt(dpi),
-                    format: "jpeg"
-                })
+            // セッションIDを取得
+            const res_session = await fetch('/api/session', {
+                method: 'GET'
             });
-
-            if (!response.ok) {
-                throw new Error('アップロードURLの取得に失敗しました');
+            if (!res_session.ok) {
+                throw new Error('セッションIDの取得に失敗しました');
             }
-
-            const { upload_url, job_id } = await response.json();
-            currentJobId = job_id;
+            const sessionData = await res_session.json();
+            currentSessionId = sessionData.session_id;
 
             // すべてのファイルをアップロード
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
                 progressText.textContent = `ファイル ${i + 1}/${files.length} をアップロード中...`;
 
-                // 最初のファイル以外は新しいアップロードURLを取得
-                let uploadUrl = upload_url;
-                if (i > 0) {
-                    const urlResponse = await fetch('/api/upload-url', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            filename: file.name,
-                            content_type: file.type,
-                            dpi: parseInt(dpi),
-                            format: "jpeg"
-                        })
-                    });
-
-                    if (!urlResponse.ok) {
-                        throw new Error('アップロードURLの取得に失敗しました');
-                    }
-
-                    const urlData = await urlResponse.json();
-                    uploadUrl = urlData.upload_url;
+                const res_upload_job = await fetch('/api/upload-url/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        session_id: currentSessionId,
+                        filename: file.name,
+                        content_type: file.type,
+                        dpi: parseInt(dpi),
+                        format: "jpeg"
+                    })
+                });
+                if (!res_upload_job.ok) {
+                    throw new Error('アップロードURLの取得に失敗しました');
                 }
+                const urlData = await res_upload_job.json();
+                uploadUrl = urlData.upload_url;
+                if (i == 0) {currentJobId = urlData.job_id}
 
                 // ファイルをアップロード
                 const formData = new FormData();
@@ -96,12 +80,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
+            // アップロード完了後、セッションのステータスを"converting"に更新
+            const updateSessionStatus = await fetch(`/api/session-update/${currentSessionId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    status: 'converting'
+                })
+            });
+            if (!updateSessionStatus.ok) {
+                throw new Error('セッションステータスの更新に失敗しました');
+            }
+
             // Server-Sent Eventsで進捗を監視
             if (eventSource) {
                 eventSource.close();
             }
 
-            eventSource = new EventSource(`/api/status/${currentJobId}`);
+            eventSource = new EventSource(`/api/session-status/${currentSessionId}`);
             eventSource.onmessage = (event) => {
                 const data = JSON.parse(event.data);
                 updateProgress(data);
@@ -110,28 +108,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 eventSource.close();
             };
 
-            // 変換が完了するまで待機
-            await new Promise(resolve => {
-                const checkStatus = async () => {
-                    const statusResponse = await fetch(`/api/status/${currentJobId}`);
-                    if (statusResponse.ok) {
-                        const statusData = await statusResponse.json();
-                        if (statusData.status === 'completed') {
-                            resolve();
-                        } else if (statusData.status === 'error') {
-                            throw new Error(statusData.message || '変換中にエラーが発生しました');
-                        } else {
-                            setTimeout(checkStatus, 1000);
-                        }
-                    } else {
-                        throw new Error('ステータスの取得に失敗しました');
-                    }
-                };
-                checkStatus();
+            // 変換完了後、ZIPファイルの生成をリクエスト
+            const zipResponse = await fetch(`/api/create-zip/${currentSessionId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
             });
 
+            if (!zipResponse.ok) {
+                throw new Error('ZIPファイルの生成に失敗しました');
+            }
+
+            // ZIPファイルの生成が完了するまで少し待機
+            // HACK: ひとまず1秒待ち。以前のPDF→画像変換と同様、完了を検知して制御するようにしたい
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
             // ダウンロードURLを取得
-            const downloadResponse = await fetch(`/api/download/${currentJobId}`);
+            const downloadResponse = await fetch(`/api/download/${currentSessionId}`);
             
             if (downloadResponse.ok) {
                 const downloadData = await downloadResponse.json();
@@ -156,25 +150,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (status === 'completed') {
             eventSource.close();
-            
-            // ダウンロードURLを取得
-            fetch(`/api/download/${currentJobId}`)
-                .then(response => {
-                    if (response.ok) {
-                        return response.json();
-                    } else {
-                        throw new Error('ダウンロードURLの取得に失敗しました');
-                    }
-                })
-                .then(downloadData => {
-                    downloadLink.href = downloadData.download_url;
-                    progressDiv.classList.add('hidden');
-                    resultDiv.classList.remove('hidden');
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    progressText.textContent = '変換は完了しましたが、ダウンロードURLの取得に失敗しました。';
-                });
         } else if (status === 'error') {
             eventSource.close();
             alert('エラーが発生しました: ' + message);

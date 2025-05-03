@@ -24,11 +24,17 @@ class Settings(BaseSettings):
         env_file = ".env"
         case_sensitive = False
 
-    def get_storage_path(self, job_id: str) -> str:
+    def get_session_dirpath(self, session_id: str) -> str:
+        """セッションIDに基づいてストレージパスを取得"""
+        if self.environment == "local":
+            return os.path.join(self.local_storage_path, session_id)
+        return f"{session_id}"
+
+    def get_storage_path(self, session_id: str, job_id: str = None) -> str:
         """ジョブIDに基づいてストレージパスを取得"""
         if self.environment == "local":
-            return os.path.join(self.local_storage_path, job_id)
-        return f"{job_id}"
+            return os.path.join(self.local_storage_path, session_id, job_id)
+        return f"{session_id}/{job_id}"
 
 @lru_cache()
 def get_settings() -> Settings:

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, UploadFile, File
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
-from app.models.schemas import UploadRequest, SessionResponse, UploadResponse, SessionStatus, JobStatus, DownloadResponse
+from app.models.schemas import UploadRequest, SessionRequest, SessionResponse, UploadResponse, SessionStatus, JobStatus, DownloadResponse
 from app.services.storage import generate_session_url, generate_upload_url, generate_download_url
 import os
 from app.core.config import get_settings
@@ -26,8 +26,8 @@ settings = get_settings()
 # 複数のファイルを処理するための辞書
 pending_files = {}
 
-@router.get("/session", response_model=SessionResponse)
-def get_session_id():
+@router.post("/session", response_model=SessionResponse)
+def get_session_id(request: SessionRequest):
     try:
         session_url, session_id = generate_session_url()
         initial_session = SessionStatus(
@@ -36,7 +36,7 @@ def get_session_id():
             progress=0.0,
             created_at=datetime.now(),
             pdf_num=1,      # NOTE: PDF格納先を連番にする場合に使用を想定
-            image_num=1,    # TODO: フロントから開始番号を取得
+            image_num=request.start_number,
             message="セッションを初期化しました"
         )
         session_status_manager.update_status(session_id, initial_session)

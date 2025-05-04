@@ -29,7 +29,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // セッションIDを取得
             const res_session = await fetch('/api/session', {
-                method: 'GET'
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    start_number: parseInt(startNumber)
+                })
             });
             if (!res_session.ok) {
                 throw new Error('セッションIDの取得に失敗しました');

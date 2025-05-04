@@ -20,6 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const dpi = document.getElementById('dpi').value;
+        const startNumber = document.getElementById('startNumber').value;
 
         try {
             // 進捗表示を開始
@@ -51,7 +52,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         filename: file.name,
                         content_type: file.type,
                         dpi: parseInt(dpi),
-                        format: "jpeg"
+                        format: "jpeg",
+                        start_number: parseInt(startNumber)
                     })
                 });
                 if (!res_upload_job.ok) {

@@ -89,7 +89,7 @@ class UploadRequest(BaseModel):
 
 - devブランチの改善点を活かしつつ、Cloud Storage連携とリネーム機能を実装する
 - 日本語ファイル名の処理に特に注意
-- ローカル環境（environment="local"）でも動作するように互換性を維持
+- ローカル環境（region="local"）でも動作するように互換性を維持
 - 実装後はまずローカル環境で十分テストしてからデプロイする
 - `service_account.json`は機密情報を含むため、安全に管理し、公開リポジトリにアップロードしないよう注意
 

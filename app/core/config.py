@@ -5,11 +5,11 @@ import os
 class Settings(BaseSettings):
     # GCP設定
     gcp_project: str
-    region: str
+    gcp_region: str
     
     # Cloud Storage設定
-    bucket_raw: str
-    bucket_zip: str
+    gcs_bucket_raw: str
+    gcs_bucket_zip: str
     
     # ローカルストレージ設定
     local_storage_path: str = "local_storage"
@@ -23,13 +23,13 @@ class Settings(BaseSettings):
 
     def get_session_dirpath(self, session_id: str) -> str:
         """セッションIDに基づいてストレージパスを取得"""
-        if self.region == "local":
+        if self.gcp_region == "local":
             return os.path.join(self.local_storage_path, session_id)
         return f"{session_id}"
 
     def get_storage_path(self, session_id: str, job_id: str = None) -> str:
         """ジョブIDに基づいてストレージパスを取得"""
-        if self.region == "local":
+        if self.gcp_region == "local":
             return os.path.join(self.local_storage_path, session_id, job_id)
         return f"{session_id}/{job_id}"
 

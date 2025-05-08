@@ -20,6 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const dpi = document.getElementById('dpi').value;
+        const startNumber = document.getElementById('startNumber').value;
 
         try {
             // 進捗表示を開始
@@ -28,7 +29,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // セッションIDを取得
             const res_session = await fetch('/api/session', {
-                method: 'GET'
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    start_number: parseInt(startNumber)
+                })
             });
             if (!res_session.ok) {
                 throw new Error('セッションIDの取得に失敗しました');
@@ -51,7 +58,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         filename: file.name,
                         content_type: file.type,
                         dpi: parseInt(dpi),
-                        format: "jpeg"
+                        format: "jpeg",
+                        start_number: parseInt(startNumber)
                     })
                 });
                 if (!res_upload_job.ok) {

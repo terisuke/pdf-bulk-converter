@@ -79,7 +79,7 @@ pdf-bulk-converter/
 │   └── js/                   # フロントエンドスクリプト
 ├── templates/                 # HTMLテンプレート
 ├── local_storage/            # ローカル開発用ストレージ
-├── .env                    # 環境変数
+├── .env.local                # ローカル開発用環境変数
 ├── .env.example           # 環境変数テンプレート
 ├── .gitignore            # Git除外設定
 ├── Dockerfile            # コンテナ設定
@@ -107,7 +107,6 @@ pdf-bulk-converter/
 [FastAPI Server]
   │
   ├─ 2. PDF Processing
-  │   ├─ ZIP展開 (オプション)
   │   └─ JPEG変換 (PyMuPDF)
   │
   └─ 3. Progress Updates (SSE)
@@ -120,13 +119,17 @@ pdf-bulk-converter/
 
 | Method | Path                     | 説明                    |
 |--------|--------------------------|-------------------------|
-| `POST` | `/api/upload`            | PDFまたはZIPファイルをアップロード    |
-| `GET`  | `/api/status/{job_id}`   | SSE でジョブ進捗をリアルタイムに返す |
-| `GET`  | `/api/download/{job_id}` | 変換済みZIPファイルをダウンロード   |
+| `POST` | `/api/session`           | アップロードセッション開始、ファイル連番起点指定  |
+| `POST` | `/api/upload-url`        | アップロードURLを取得、ジョブID発行            |
+| `GET`  | `/api/session-status/{job_id}`   | SSE でセッション進捗をリアルタイムに返す |
+| `GET`  | `/api/job-status/{job_id}`   | SSE でジョブ進捗をリアルタイムに返す |
+| `POST` | `/api/local-upload/{session_id}/{job_id}/{filename} | PDFファイルアップロード (ローカル用) |
+| `POST` | `/api/create-zip/{session_id} | ZIPファイル作成 |
+| `GET`  | `/api/download/{session}` | 変換済みZIPファイルをダウンロード   |
 
 ---
 
-## 🚀 クイックスタート
+## 🚀 クイックスタート (ローカル環境)
 
 ```bash
 # 1. 依存関係のインストール
@@ -135,7 +138,7 @@ $ source venv/bin/activate  # Windows: venv\Scripts\activate
 $ pip install -r requirements.txt
 
 # 2. 環境変数を設定
-$ cp .env.example .env
+$ cp .env.local .env
 
 # 3. ローカル開発サーバー起動
 $ uvicorn app.main:app --reload
@@ -152,6 +155,7 @@ $ uvicorn app.main:app --reload
 - 仮想環境の作成に失敗する場合: `python -m venv venv --clear`を試してください
 - 依存関係のインストールに失敗する場合: `pip install --upgrade pip`を実行してから再試行してください
 - PyMuPDFのインストールに失敗する場合: システムにMuPDFライブラリがインストールされているか確認してください
+- 環境変数`GCP_REGION`変更後に切替が上手くいかない場合は、 `unset GCP_REGION`を実行してから再試行してください
 
 ---
 
@@ -159,14 +163,18 @@ $ uvicorn app.main:app --reload
 
 | 変数           | 例                | 説明                           |
 |----------------|-------------------|------------------------------|
-| `STORAGE_PATH` | `./local_storage` | ファイル保存パス                     |
-| `ENVIRONMENT`  | `local`           | 実行環境 (`local` または `cloud`) |
+| `GCP_REGION`  | `local`           | GoogleCloud 接続リージョン (ローカル実行時は`local`) |
+| `GCP_PROJECT` | `./local_storage` | GoogleCloud プロジェクト名       |
+| `GCS_BUCKET_RAW` | `pdf-raw-bucket` | CloudStorage アップロードファイル格納フォルダ       |
+| `GCS_BUCKET_ZIP` | `pdf-zip-bucket` | CloudStorage 変換ZIP格納フォルダ       |
+| `GCP_PROJECT` | `./local_storage` | GoogleCloud プロジェクト名       |
+| `SIGN_URL_EXP` | `3600`           | 発行URL有効時間(秒数)            |
 
 ---
 
 ## 📝 最近の更新
 
-### 2024-04-26
+### 2025-04-26
 - ✅ ダウンロードボタンの表示問題を修正
   - ZIPファイル名の不一致を解消
   - フロントエンドのダウンロードURL取得処理を改善
@@ -174,7 +182,7 @@ $ uvicorn app.main:app --reload
   - ローカルモードでのZIPファイル検索ロジックを強化
   - ファイル名のエンコーディング処理を改善
 
-### 2024-04-18
+### 2025-04-18
 - ✅ 出力形式をJPEGに統一
   - 画質と容量のバランスを最適化
   - UI/UXの簡素化

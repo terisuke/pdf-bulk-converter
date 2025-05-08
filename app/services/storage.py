@@ -8,7 +8,7 @@ from pathlib import Path
 settings = get_settings()
 
 # ローカルストレージの初期化
-if settings.environment == "local":
+if settings.gcp_region == "local":
     os.makedirs(settings.local_storage_path, exist_ok=True)
     client = None
 # else:
@@ -16,7 +16,7 @@ if settings.environment == "local":
 
 def generate_session_url() -> tuple[str, str]:
     session_id = str(uuid.uuid4())
-    if settings.environment == "local":
+    if settings.gcp_region == "local":
         session_dirpath = settings.get_session_dirpath(session_id)
         os.makedirs(session_dirpath, exist_ok=True)
         return f"/local-upload/{session_id}", session_id
@@ -25,7 +25,7 @@ def generate_upload_url(filename: str, session_id: str, content_type: str = "") 
     """署名付きアップロードURLを生成（ローカルモードでは一時的なアップロードパスを返す）"""
     job_id = str(uuid.uuid4())
     
-    if settings.environment == "local":
+    if settings.gcp_region == "local":
         # ローカルモード: 一時的なアップロードパスを返す
         # ファイル名をURLエンコード
         from urllib.parse import quote
@@ -54,7 +54,7 @@ def generate_upload_url(filename: str, session_id: str, content_type: str = "") 
 
 def generate_download_url(session_id: str) -> str:
     """署名付きダウンロードURLを生成（ローカルモードでは一時的なダウンロードパスを返す）"""
-    if settings.environment == "local":
+    if settings.gcp_region == "local":
         # ローカルモード: 一時的なダウンロードパスを返す
         session_dirpath = settings.get_session_dirpath(session_id)
         
@@ -88,7 +88,7 @@ def generate_download_url(session_id: str) -> str:
 
 def cleanup_job(job_id: str):
     """ジョブ関連のファイルをクリーンアップ"""
-    if settings.environment == "local":
+    if settings.gcp_region == "local":
         job_path = settings.get_storage_path(job_id)
         if os.path.exists(job_path):
             shutil.rmtree(job_path)

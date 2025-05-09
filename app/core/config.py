@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     # GCP設定
     gcp_keypath: str = "./config/service_account.json"
     gcp_region: str
+    gcp_project: str
     
     # Cloud Storage設定
     gcs_bucket: str

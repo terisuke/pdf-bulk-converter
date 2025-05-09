@@ -164,10 +164,8 @@ $ uvicorn app.main:app --reload
 | 変数           | 例                | 説明                           |
 |----------------|-------------------|------------------------------|
 | `GCP_REGION`  | `local`           | GoogleCloud 接続リージョン (ローカル実行時は`local`) |
-| `GCP_PROJECT` | `./local_storage` | GoogleCloud プロジェクト名       |
-| `GCS_BUCKET_RAW` | `pdf-raw-bucket` | CloudStorage アップロードファイル格納フォルダ       |
-| `GCS_BUCKET_ZIP` | `pdf-zip-bucket` | CloudStorage 変換ZIP格納フォルダ       |
-| `GCP_PROJECT` | `./local_storage` | GoogleCloud プロジェクト名       |
+| `GCS_KEYPATH` | `"./config/service_account.json"` | CloudCloud サービスアカウント認証鍵JSONの格納場所 |
+| `GCS_BUCKET` | `bucket-name` | CloudStorage アップロードファイル格納バケット名       |
 | `SIGN_URL_EXP` | `3600`           | 発行URL有効時間(秒数)            |
 
 ---

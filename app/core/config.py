@@ -7,10 +7,10 @@ class Settings(BaseSettings):
     # GCP設定
     gcp_keypath: str = "./config/service_account.json"
     gcp_region: str
-    gcp_project: str
+    gcp_project: str | None = None
     
     # Cloud Storage設定
-    gcs_bucket: str
+    gcs_bucket: str | None = None
     
     # ローカルストレージ設定
     local_storage_path: str = "local_storage"

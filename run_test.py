@@ -11,7 +11,7 @@ async def test_conversion():
     settings = get_settings()
     job_id = f"test-job-{uuid.uuid4().hex[:8]}"
     
-    job_dir = os.path.join(settings.local_storage_path, job_id)
+    job_dir = os.path.join(settings.workspace_path, job_id)
     os.makedirs(job_dir, exist_ok=True)
     print(f"Created job directory: {job_dir}")
     

@@ -12,8 +12,8 @@ class Settings(BaseSettings):
     # Cloud Storage設定
     gcs_bucket: str | None = None
     
-    # ローカルストレージ設定
-    local_storage_path: str = "local_storage"
+    # 作業用スペース設定
+    workspace_path: str = "tmp_workspace"
     
     # 署名付きURL設定
     sign_url_exp: int = 3600
@@ -39,7 +39,7 @@ class Settings(BaseSettings):
     def get_storage_path(self, session_id: str, job_id: str = None) -> str:
         """ジョブIDに基づいてストレージパスを取得"""
         if self.gcp_region == "local":
-            return os.path.join(self.local_storage_path, session_id, job_id)
+            return os.path.join(self.workspace_path, session_id, job_id)
         return f"{session_id}/{job_id}"
 
 @lru_cache()

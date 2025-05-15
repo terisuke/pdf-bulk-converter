@@ -10,7 +10,7 @@ settings = get_settings()
 
 # ローカルストレージの初期化
 if settings.gcp_region == "local":
-    os.makedirs(settings.local_storage_path, exist_ok=True)
+    os.makedirs(settings.workspace_path, exist_ok=True)
     client = None
 else:
     # サービスアカウントJSONファイルから認証情報を読み込む

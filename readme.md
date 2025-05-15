@@ -78,7 +78,7 @@ pdf-bulk-converter/
 │   ├── css/                  # スタイルシート
 │   └── js/                   # フロントエンドスクリプト
 ├── templates/                 # HTMLテンプレート
-├── local_storage/            # ローカル開発用ストレージ
+├── tmp_workspace/            # 作業用スペース
 ├── .env.local                # ローカル開発用環境変数
 ├── .env.example           # 環境変数テンプレート
 ├── .gitignore            # Git除外設定

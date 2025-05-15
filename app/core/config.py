@@ -10,7 +10,8 @@ class Settings(BaseSettings):
     gcp_project: str | None = None
     
     # Cloud Storage設定
-    gcs_bucket: str | None = None
+    gcs_bucket_image: str | None = None     # 変換した画像を直接格納
+    gcs_bucket_works: str | None = None     # アップロードしたPDF・ZIPや変換圧縮したZIPなど、セッションデータを格納 (local_workspaceに相当)
     
     # 作業用スペース設定
     workspace_path: str = "tmp_workspace"
@@ -33,7 +34,7 @@ class Settings(BaseSettings):
     def get_session_dirpath(self, session_id: str) -> str:
         """セッションIDに基づいてストレージパスを取得"""
         if self.gcp_region == "local":
-            return os.path.join(self.local_storage_path, session_id)
+            return os.path.join(self.workspace_path, session_id)
         return f"{session_id}"
 
     def get_storage_path(self, session_id: str, job_id: str = None) -> str:

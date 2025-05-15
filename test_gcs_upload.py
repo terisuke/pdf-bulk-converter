@@ -9,7 +9,7 @@ from app.core.config import get_settings
 
 def test_upload_to_gcs():
     settings = get_settings()
-    bucket_name = settings.gcs_bucket
+    bucket_works = settings.gcs_bucket_works
     # テスト用の設定
     source_file = "./test.pdf"
     # 現在日時からセッションIDを生成（YYYYMMDD_HHMMSS形式）
@@ -26,9 +26,9 @@ def test_upload_to_gcs():
     
     try:
         # バケットの存在確認
-        bucket = storage_client.bucket(bucket_name)
+        bucket = storage_client.bucket(bucket_works)
         if not bucket.exists():
-            pytest.skip(f"バケット {bucket_name} が存在しません。テストをスキップします。")
+            pytest.skip(f"バケット {bucket_works} が存在しません。テストをスキップします。")
 
         # ファイルの存在確認
         if not os.path.exists(source_file):

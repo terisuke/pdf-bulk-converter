@@ -44,7 +44,7 @@ def generate_upload_url(filename: str, session_id: str, content_type: str = "") 
         if not content_type:
             content_type = "application/pdf"  # デフォルトのcontent_type
         
-        bucket = client.bucket(settings.gcs_bucket)
+        bucket = client.bucket(settings.gcs_bucket_works)
         blob = bucket.blob(f"{session_id}/{job_id}/{filename}")
         
         url = blob.generate_signed_url(

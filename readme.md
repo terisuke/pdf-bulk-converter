@@ -165,7 +165,8 @@ $ uvicorn app.main:app --reload
 |----------------|-------------------|------------------------------|
 | `GCP_REGION`  | `local`           | GoogleCloud 接続リージョン (ローカル実行時は`local`) |
 | `GCS_KEYPATH` | `"./config/service_account.json"` | CloudCloud サービスアカウント認証鍵JSONの格納場所 |
-| `GCS_BUCKET` | `bucket-name` | CloudStorage アップロードファイル格納バケット名       |
+| `GCS_BUCKET_IMAGE` | `bucket-name-image` | CloudStorage 変換画像ファイル格納バケット名       |
+| `GCS_BUCKET_WORKS` | `bucket-name-works` | CloudStorage 作業ファイル格納バケット名       |
 | `SIGN_URL_EXP` | `3600`           | 発行URL有効時間(秒数)            |
 
 ---

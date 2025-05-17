@@ -55,11 +55,11 @@ devブランチでは以下の改善が既に実装されています：
 ### 1. 環境変数とモデルの整備
 - `.env`ファイルにCloud Storage関連設定を追加
 ```
-GCP_PROJECT=yolov8environment
-REGION=asia-northeast1
-BUCKET_RAW=pdf-raw-bucket
-BUCKET_ZIP=pdf-zip-bucket
-SERVICE_ACCOUNT_KEY=./config/service_account.json
+GCP_REGION=asia-northeast1
+GCP_KEYPATH="./config/service_account.json"
+GCS_BUCKET_IMAGE=bucket-name-image
+GCS_BUCKET_WORKS=bucket-name-works
+SIGN_URL_EXP=3600 
 ```
 
 - `config`フォルダに`service_account.json`を配置

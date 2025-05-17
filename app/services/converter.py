@@ -108,28 +108,28 @@ async def convert_pdfs_to_images(session_id: str, job_id: str, pdf_paths: List[s
             _, image_paths = await convert_1pdf_to_images(session_id, job_id, pdf_path, dpi, format, images_dir)
             all_image_paths.extend(image_paths)
             
-            # 全体の進捗を更新
-            total_progress = (i / total_files) * 100
-            status = JobStatus(
+            # ジョブの進捗を更新
+            job_process = (i / total_files) * 100
+            job_status = JobStatus(
                 session_id=session_id,
                 job_id=job_id,
                 status="processing",
                 message=f"PDFファイル {i}/{total_files} を処理中",
-                progress=total_progress,
+                progress=job_process,
                 created_at=datetime.now()
             )
-            job_status_manager.update_status(job_id, status)
+            job_status_manager.update_status(job_id, job_status)
         
         # 完了ステータスを設定
-        complete_status = JobStatus(
+        job_complete_status = JobStatus(
             session_id=session_id,
             job_id=job_id,
-            status="converted",
+            status="completed",
             message=f"ジョブ {job_id} のファイルの画像変換が完了しました",
             progress=100,
             created_at=datetime.now()
         )
-        job_status_manager.update_status(job_id, complete_status)
+        job_status_manager.update_status(job_id, job_complete_status)
         
         return images_dir, all_image_paths
         

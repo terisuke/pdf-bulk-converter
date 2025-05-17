@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
+from typing import Optional, Union
 import os
 import json
 
@@ -7,11 +8,11 @@ class Settings(BaseSettings):
     # GCP設定
     gcp_keypath: str = "./config/service_account.json"
     gcp_region: str
-    gcp_project: str | None = None
+    gcp_project: Optional[str] = None
     
     # Cloud Storage設定
-    gcs_bucket_image: str | None = None     # 変換した画像を直接格納
-    gcs_bucket_works: str | None = None     # アップロードしたPDF・ZIPや変換圧縮したZIPなど、セッションデータを格納 (local_workspaceに相当)
+    gcs_bucket_image: Optional[str] = None     # 変換した画像を直接格納
+    gcs_bucket_works: Optional[str] = None     # アップロードしたPDF・ZIPや変換圧縮したZIPなど、セッションデータを格納 (local_workspaceに相当)
     
     # 作業用スペース設定
     workspace_path: str = "tmp_workspace"

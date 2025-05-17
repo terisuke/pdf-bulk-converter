@@ -27,7 +27,7 @@
 ## 🏗️ 技術スタック
 
 * **Backend**  
-  * Python: 3.11
+  * Python: 3.11+ (3.12推奨)
   * FastAPI: 0.109.2 (ASGI, SSE, OpenAPI)  
   * PyMuPDF: PDF → JPEG 変換  
   * uvicorn: 0.27.1
@@ -131,30 +131,75 @@ pdf-bulk-converter/
 
 ## 🚀 クイックスタート (ローカル環境)
 
+### セットアップスクリプトを使用する方法（推奨）
 ```bash
-# 1. 依存関係のインストール
-$ python -m venv venv
-$ source venv/bin/activate  # Windows: venv\Scripts\activate
-$ pip install -r requirements.txt
+# 1. セットアップスクリプトを実行（Python 3.11以上が自動で設定されます）
+$ chmod +x setup.sh
+$ ./setup.sh
 
-# 2. 環境変数を設定
-$ cp .env.local .env
+# 2. 仮想環境を有効化
+$ source venv/bin/activate  # Windows: venv\Scripts\activate
 
 # 3. ローカル開発サーバー起動
 $ uvicorn app.main:app --reload
 ```
 
-### インストール時の注意点
-- Python 3.11以上が必要です
-- PyMuPDFのインストールには、システムにMuPDFライブラリが必要な場合があります
-  - macOS: `brew install mupdf`
-  - Ubuntu: `apt-get install libmupdf-dev`
-  - Windows: 通常は自動的にインストールされます
+### pyenvを使用したセットアップ（Pythonバージョン切り替えが必要な場合）
+```bash
+# 1. pyenvを使用したセットアップスクリプトを実行
+$ chmod +x setup_with_pyenv.sh
+$ ./setup_with_pyenv.sh
 
-### 仮想環境の問題解決
+# 2. 仮想環境を有効化
+$ source venv/bin/activate  # Windows: venv\Scripts\activate
+
+# 3. ローカル開発サーバー起動
+$ uvicorn app.main:app --reload
+```
+
+### 手動セットアップ（上級者向け）
+```bash
+# 1. Python 3.11以上がインストールされていることを確認
+$ python --version
+
+# 2. 仮想環境を作成
+$ python -m venv venv
+$ source venv/bin/activate  # Windows: venv\Scripts\activate
+$ pip install --upgrade pip setuptools wheel
+
+# 3. 依存関係をインストール
+$ pip install -r requirements.txt
+
+# 4. 環境変数を設定
+$ cp .env.local .env
+
+# 5. ローカル開発サーバー起動
+$ uvicorn app.main:app --reload
+```
+
+### インストール時の注意点
+- Python 3.11以上が必要です（セットアップスクリプトで自動対応）
+- `setup.sh`を実行すると、Pythonのバージョンが自動的にチェックされます
+  - Python 3.11以上が利用可能な場合はそのまま使用
+  - 3.11未満の場合は自動的に`setup_with_pyenv.sh`が実行され、pyenvを使用して適切なPythonバージョンがインストールされます
+- PyMuPDFのインストールには、システムにMuPDFライブラリが必要な場合があります（セットアップスクリプトで自動インストールします）
+
+### トラブルシューティング
+
+#### 自動設定がうまくいかない場合
+- 全てのセットアップスクリプトがうまく実行できない場合は　1. `python --version` で現在のバージョンを2. `which python` で使用しているPythonの場所を確認してください
+
+#### 環境変数の問題
+- 実行時に `gcp_region` 無し等のエラーが出る場合は、`.env` ファイルが正しく生成されているか確認してください
+- 手動で `cp .env.local .env` を実行してみてください
+
+#### PyMuPDFのインストール問題
+- macOS: `brew install mupdf`
+- Ubuntu: `apt-get install libmupdf-dev`
+- Windows: Microsoft Visual C++ Redistributableのインストールが必要な場合があります
+
+#### その他
 - 仮想環境の作成に失敗する場合: `python -m venv venv --clear`を試してください
-- 依存関係のインストールに失敗する場合: `pip install --upgrade pip`を実行してから再試行してください
-- PyMuPDFのインストールに失敗する場合: システムにMuPDFライブラリがインストールされているか確認してください
 - 環境変数`GCP_REGION`変更後に切替が上手くいかない場合は、 `unset GCP_REGION`を実行してから再試行してください
 
 ---

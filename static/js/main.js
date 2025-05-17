@@ -43,6 +43,19 @@ document.addEventListener('DOMContentLoaded', () => {
             const sessionData = await res_session.json();
             currentSessionId = sessionData.session_id;
 
+            // Server-Sent Eventsで進捗を監視
+            if (eventSource) {
+                eventSource.close();
+            }
+            eventSource = new EventSource(`/api/session-status/${currentSessionId}`);
+            eventSource.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                updateProgress(data);
+            };
+            eventSource.onerror = () => {
+                eventSource.close();
+            };
+
             // すべてのファイルをアップロード
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
@@ -101,20 +114,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!updateSessionStatus.ok) {
                 throw new Error('セッションステータスの更新に失敗しました');
             }
-
-            // Server-Sent Eventsで進捗を監視
-            if (eventSource) {
-                eventSource.close();
-            }
-
-            eventSource = new EventSource(`/api/session-status/${currentSessionId}`);
-            eventSource.onmessage = (event) => {
-                const data = JSON.parse(event.data);
-                updateProgress(data);
-            };
-            eventSource.onerror = () => {
-                eventSource.close();
-            };
 
             // 変換完了後、ZIPファイルの生成をリクエスト
             const zipResponse = await fetch(`/api/create-zip/${currentSessionId}`, {

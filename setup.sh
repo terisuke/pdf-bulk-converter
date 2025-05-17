@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
 # PDF Bulk Converter Setup Script
 
@@ -7,14 +8,21 @@ echo "==============================="
 
 # Check Python version
 python_version=$(python3 --version 2>&1)
-echo "Detected: $python_version"
+echo "検出: $python_version"
 
 # Check if Python version is at least 3.11
-if [[ ! $python_version =~ 3\.1[1-9]\. && ! $python_version =~ 3\.[2-9][0-9]\. ]]; then
-    echo "Warning: This project requires Python 3.11+"
-    echo "Current system Python version $python_version is not compatible."
+python_info=$(python3 - <<'EOF'
+import sys, json
+print(json.dumps({"major": sys.version_info.major, "minor": sys.version_info.minor}))
+EOF
+)
+major=$(echo "$python_info" | python3 -c "import sys, json; print(json.load(sys.stdin)['major'])")
+minor=$(echo "$python_info" | python3 -c "import sys, json; print(json.load(sys.stdin)['minor'])")
+if (( major < 3 || (major == 3 && minor < 11) )); then
+    echo "警告: このプロジェクトはPython 3.11+を必要とします"
+    echo "現在のシステムPythonバージョン $python_version は互換性がありません。"
     echo ""
-    echo "Attempting to use setup_with_pyenv.sh to install the correct Python version..."
+    echo "正しいPythonバージョンをインストールするためにsetup_with_pyenv.shを使用してみます..."
     
     # Make setup_with_pyenv.sh executable
     chmod +x setup_with_pyenv.sh
@@ -26,48 +34,49 @@ if [[ ! $python_version =~ 3\.1[1-9]\. && ! $python_version =~ 3\.[2-9][0-9]\. ]
     exit $?
 fi
 
-echo "Python $python_version is compatible with this project."
+echo "Python $python_version はこのプロジェクトと互換性があります。"
 
 # Check if venv directory exists and delete it
 if [ -d "venv" ]; then
-    echo "Removing existing virtual environment..."
+    echo "既存の仮想環境を削除します..."
     rm -rf venv
 fi
 
 # Create a new virtual environment
-echo "Creating a new virtual environment..."
+echo "新しい仮想環境を作成します..."
 python3 -m venv venv
 
 # Activate the virtual environment
-echo "Activating virtual environment..."
+echo "仮想環境をアクティブ化します..."
 source venv/bin/activate
 
 # Add execute permissions to the requirements-fix.py script
 chmod +x requirements-fix.py
 
 # Use our custom requirements-fix.py script to install dependencies
-echo "Installing project dependencies using requirements-fix.py..."
-./requirements-fix.py
-
-if [ $? -ne 0 ]; then
-    echo "Error: Failed to install dependencies."
-    echo ""
-    echo "Trying to install MuPDF system dependencies..."
-    ./requirements-fix.py --mupdf-only
-    echo "Now trying to install requirements again..."
-    pip install -r requirements.txt
-    
-    if [ $? -ne 0 ]; then
-        echo "Error: Failed to install dependencies after fixing MuPDF."
+ echo "requirements-fix.py を使用して依存関係をインストールします..."
+ if ! ./requirements-fix.py; then
+   echo "エラー: requirements-fix.py の実行に失敗しました。MuPDF専用オプションで再試行します..."
+   ./requirements-fix.py --mupdf-only || {
+     echo "MuPDF専用オプションでも失敗したため、リクワイアメントからインストールを試行します..."
+     python3 -m pip install -r requirements.txt || {
+       echo "依存関係のインストールに最終的に失敗しました。"
+       exit 1
+     }
+   }
+ fi
+ fi
+  fi
+        echo "エラー: MuPDFを修正した後でも依存関係のインストールに失敗しました。"
         echo ""
-        echo "Possible solutions:"
-        echo "1. For PyMuPDF issues:"
+        echo "可能な解決策:"
+        echo "1. PyMuPDFの問題について:"
         echo "   - macOS: brew install mupdf"
         echo "   - Ubuntu: apt-get install libmupdf-dev"
-        echo "   - Windows: Ensure Microsoft Visual C++ Redistributable is installed"
-        echo "2. Try manually installing the problematic package:"
+        echo "   - Windows: Microsoft Visual C++ Redistributableがインストールされていることを確認してください。"
+        echo "2. 問題のあるパッケージを手動でインストールしてみてください:"
         echo "   - pip install PyMuPDF==1.23.26"
-        echo "3. Check for Python version compatibility"
+        echo "3. Pythonバージョンの互換性を確認してください。"
         echo ""
         exit 1
     fi
@@ -85,13 +94,13 @@ fi
 
 # Setup successful
 echo ""
-echo "Setup completed successfully!"
+echo "セットアップが正常に完了しました！"
 echo ""
-echo "To activate the virtual environment, run:"
+echo "仮想環境をアクティブにするには、以下を実行してください:"
 echo "    source venv/bin/activate"
+echo "    python3 -m pip install --upgrade pip"
 echo ""
-echo "Then start the development server with:"
+echo "その後、開発サーバーを以下のコマンドで開始してください:"
 echo "    uvicorn app.main:app --reload"
-
-# Exit the virtual environment
-deactivate
+echo ""
+echo "注意: 仮想環境をアクティブにするには、`source venv/bin/activate`を実行してください。"

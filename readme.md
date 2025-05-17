@@ -184,23 +184,25 @@ $ uvicorn app.main:app --reload
   - 3.11未満の場合は自動的に`setup_with_pyenv.sh`が実行され、pyenvを使用して適切なPythonバージョンがインストールされます
 - PyMuPDFのインストールには、システムにMuPDFライブラリが必要な場合があります（セットアップスクリプトで自動インストールします）
 
-### トラブルシューティング
+### トラブルシューティング 🚨
 
-#### 自動設定がうまくいかない場合
-- 全てのセットアップスクリプトがうまく実行できない場合は　1. `python --version` で現在のバージョンを2. `which python` で使用しているPythonの場所を確認してください
+#### 自動設定がうまくいかない場合 🔄
+  - `python --version` で現在のバージョンを確認
+  - `which python` で使用しているPythonの場所を確認
 
-#### 環境変数の問題
-- 実行時に `gcp_region` 無し等のエラーが出る場合は、`.env` ファイルが正しく生成されているか確認してください
-- 手動で `cp .env.local .env` を実行してみてください
+#### 環境変数の問題 🌐
+  - `.env` ファイルが正しく生成されているか確認
+  - 手動で `cp .env.local .env` を実行
 
-#### PyMuPDFのインストール問題
-- macOS: `brew install mupdf`
-- Ubuntu: `apt-get install libmupdf-dev`
-- Windows: Microsoft Visual C++ Redistributableのインストールが必要な場合があります
+#### PyMuPDFのインストール問題 📦
+  - macOS: `brew install mupdf`
+  - Ubuntu: `apt-get install libmupdf-dev`
+  - Windows: Microsoft Visual C++ Redistributableのインストールが必要な場合があります
 
-#### その他
-- 仮想環境の作成に失敗する場合: `python -m venv venv --clear`を試してください
-- 環境変数`GCP_REGION`変更後に切替が上手くいかない場合は、 `unset GCP_REGION`を実行してから再試行してください
+#### その他 🤔
+  - 仮想環境の作成に失敗する場合: `python -m venv venv --clear` を試してください
+  - 環境変数`GCP_REGION`変更後に切替が上手くいかない場合は:
+    - `unset GCP_REGION` を実行してから再試行
 
 ---
 

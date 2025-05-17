@@ -114,8 +114,10 @@ def install_requirements():
                     subprocess.run([sys.executable, "-m", "pip", "install"] + mupdf_requirements, check=True)
                     print("PyMuPDF installed successfully after installing MuPDF.")
                 except subprocess.CalledProcessError:
-                    print("\nWarning: Failed to install PyMuPDF. You may need to install it manually.")
-                    print("Try running: pip install PyMuPDF==1.23.26")
+                    # Extract the version specifier from the mupdf_requirements list
+                    version_specifier = mupdf_requirements[0].split("==")[1]
+                    print(f"\nWarning: Failed to install PyMuPDF. You may need to install it manually.")
+                    print(f"Try running: pip install PyMuPDF=={version_specifier}")
                     return False
         
         print("\nAll dependencies installed successfully!")

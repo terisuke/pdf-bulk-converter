@@ -73,6 +73,81 @@ async def convert_1pdf_to_images(session_id: str, job_id: str, pdf_path: str, dp
     
     return images_dir, image_paths
 
+# 複数のPDFファイルを処理する関数を追加
+async def convert_pdfs_to_images(session_id: str, job_id: str, pdf_paths: List[str], dpi: int = 300, format: str = "jpeg") -> Tuple[str, List[str]]:
+    """
+    PDFファイルを画像変換する (複数対応)
+    
+    Args:
+        session_id: セッションID
+        job_id: ジョブID
+        pdf_paths: PDFファイルのパスリスト
+        dpi: 出力画像のDPI
+        format: 出力形式（常にjpeg）
+        imagenum_start: 
+    
+    Returns:
+        Tuple[画像格納ディレクトリ, 生成された画像ファイルのパスリスト]
+    """
+    try:
+        # 常にJPEGとして処理
+        format = "jpeg"
+        logger.info(f"複数PDF変換開始: session_id={session_id}, job_id={job_id}, pdf_count={len(pdf_paths)}, dpi={dpi}")
+        
+        # 出力ディレクトリの作成
+        images_dir = os.path.join(settings.get_session_dirpath(session_id), "images")
+        os.makedirs(images_dir, exist_ok=True)
+        
+        # すべての画像ファイルのパスを保持
+        all_image_paths = []
+        
+        # 各PDFファイルを処理
+        total_files = len(pdf_paths)
+        for i, pdf_path in enumerate(pdf_paths, 1):
+            # PDFファイルを処理
+            _, image_paths = await convert_1pdf_to_images(session_id, job_id, pdf_path, dpi, format, images_dir)
+            all_image_paths.extend(image_paths)
+            
+            # ジョブの進捗を更新
+            job_process = (i / total_files) * 100
+            job_status = JobStatus(
+                session_id=session_id,
+                job_id=job_id,
+                status="processing",
+                message=f"PDFファイル {i}/{total_files} を処理中",
+                progress=job_process,
+                created_at=datetime.now()
+            )
+            job_status_manager.update_status(job_id, job_status)
+        
+        # 完了ステータスを設定
+        job_complete_status = JobStatus(
+            session_id=session_id,
+            job_id=job_id,
+            status="completed",
+            message=f"ジョブ {job_id} のファイルの画像変換が完了しました",
+            progress=100,
+            created_at=datetime.now()
+        )
+        job_status_manager.update_status(job_id, job_complete_status)
+        
+        return images_dir, all_image_paths
+        
+    except Exception as e:
+        # エラーが発生した場合、ステータスを更新
+        error_message = f"変換中にエラーが発生しました: {str(e)}"
+        logger.error(f"エラー発生: job_id={job_id}, error={str(e)}")
+        error_status = JobStatus(
+            session_id=session_id,
+            job_id=job_id,
+            status="error",
+            message=error_message,
+            progress=0,
+            created_at=datetime.now()
+        )
+        job_status_manager.update_status(job_id, error_status)
+        raise
+
 # ZIPファイルの作成
 def create_zip_file(session_id: str, image_paths: List[str]) -> str:
     """
@@ -111,78 +186,3 @@ def create_zip_file(session_id: str, image_paths: List[str]) -> str:
     session_status_manager.update_status(session_id, status)
 
     return zip_path
-
-# 複数のPDFファイルを処理する関数を追加
-async def convert_pdfs_to_images(session_id: str, job_id: str, pdf_paths: List[str], dpi: int = 300, format: str = "jpeg") -> Tuple[str, List[str]]:
-    """
-    PDFファイルを画像変換する (複数対応)
-    
-    Args:
-        session_id: セッションID
-        job_id: ジョブID
-        pdf_paths: PDFファイルのパスリスト
-        dpi: 出力画像のDPI
-        format: 出力形式（常にjpeg）
-        imagenum_start: 
-    
-    Returns:
-        Tuple[画像格納ディレクトリ, 生成された画像ファイルのパスリスト]
-    """
-    try:
-        # 常にJPEGとして処理
-        format = "jpeg"
-        logger.info(f"複数PDF変換開始: session_id={session_id}, job_id={job_id}, pdf_count={len(pdf_paths)}, dpi={dpi}")
-        
-        # 出力ディレクトリの作成
-        images_dir = os.path.join(settings.get_session_dirpath(session_id), "images")
-        os.makedirs(images_dir, exist_ok=True)
-        
-        # すべての画像ファイルのパスを保持
-        all_image_paths = []
-        
-        # 各PDFファイルを処理
-        total_files = len(pdf_paths)
-        for i, pdf_path in enumerate(pdf_paths, 1):
-            # PDFファイルを処理
-            _, image_paths = await convert_1pdf_to_images(session_id, job_id, pdf_path, dpi, format, images_dir)
-            all_image_paths.extend(image_paths)
-            
-            # 全体の進捗を更新
-            total_progress = (i / total_files) * 100
-            status = JobStatus(
-                session_id=session_id,
-                job_id=job_id,
-                status="processing",
-                message=f"PDFファイル {i}/{total_files} を処理中",
-                progress=total_progress,
-                created_at=datetime.now()
-            )
-            job_status_manager.update_status(job_id, status)
-        
-        # 完了ステータスを設定
-        complete_status = JobStatus(
-            session_id=session_id,
-            job_id=job_id,
-            status="converted",
-            message=f"ジョブ {job_id} のファイルの画像変換が完了しました",
-            progress=100,
-            created_at=datetime.now()
-        )
-        job_status_manager.update_status(job_id, complete_status)
-        
-        return images_dir, all_image_paths
-        
-    except Exception as e:
-        # エラーが発生した場合、ステータスを更新
-        error_message = f"変換中にエラーが発生しました: {str(e)}"
-        logger.error(f"エラー発生: job_id={job_id}, error={str(e)}")
-        error_status = JobStatus(
-            session_id=session_id,
-            job_id=job_id,
-            status="error",
-            message=error_message,
-            progress=0,
-            created_at=datetime.now()
-        )
-        job_status_manager.update_status(job_id, error_status)
-        raise        

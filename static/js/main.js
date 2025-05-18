@@ -43,10 +43,24 @@ document.addEventListener('DOMContentLoaded', () => {
             const sessionData = await res_session.json();
             currentSessionId = sessionData.session_id;
 
+            // Server-Sent Eventsで進捗を監視
+            if (eventSource) {
+                eventSource.close();
+            }
+            eventSource = new EventSource(`/api/session-status/${currentSessionId}`);
+            eventSource.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                updateProgress(data);
+            };
+            eventSource.onerror = () => {
+                eventSource.close();
+            };
+
             // すべてのファイルをアップロード
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
-                progressText.textContent = `ファイル ${i + 1}/${files.length} をアップロード中...`;
+                progressText.textContent = `ファイル ${i + 1}/${files.length} を処理中...`;
+                progressBar.style.width = `${10.0 + 80.0 * (i / files.length)}%`;
 
                 const res_upload_job = await fetch('/api/upload-url/', {
                     method: 'POST',
@@ -88,33 +102,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            // アップロード完了後、セッションのステータスを"converting"に更新
+            // アップロード完了後、セッションのステータスを"zipping"に更新
             const updateSessionStatus = await fetch(`/api/session-update/${currentSessionId}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    status: 'converting'
+                    status: 'zipping',
+                    progress: 90.0,
+                    message: 'ZIPファイルを作成中...'
                 })
             });
             if (!updateSessionStatus.ok) {
                 throw new Error('セッションステータスの更新に失敗しました');
             }
-
-            // Server-Sent Eventsで進捗を監視
-            if (eventSource) {
-                eventSource.close();
-            }
-
-            eventSource = new EventSource(`/api/session-status/${currentSessionId}`);
-            eventSource.onmessage = (event) => {
-                const data = JSON.parse(event.data);
-                updateProgress(data);
-            };
-            eventSource.onerror = () => {
-                eventSource.close();
-            };
 
             // 変換完了後、ZIPファイルの生成をリクエスト
             const zipResponse = await fetch(`/api/create-zip/${currentSessionId}`, {

@@ -11,7 +11,7 @@ def cleanup_temp_files(job_id: str) -> None:
         job_id: ジョブID
     """
     settings = get_settings()
-    job_dir = os.path.join(settings.local_storage_path, job_id)
+    job_dir = os.path.join(settings.workspace_path, job_id)
     
     # ジョブディレクトリが存在する場合は削除
     if os.path.exists(job_dir):

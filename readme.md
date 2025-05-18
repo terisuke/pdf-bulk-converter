@@ -27,7 +27,7 @@
 ## 🏗️ 技術スタック
 
 * **Backend**  
-  * Python: 3.11
+  * Python: 3.11+ (3.12推奨)
   * FastAPI: 0.109.2 (ASGI, SSE, OpenAPI)  
   * PyMuPDF: PDF → JPEG 変換  
   * uvicorn: 0.27.1
@@ -78,7 +78,7 @@ pdf-bulk-converter/
 │   ├── css/                  # スタイルシート
 │   └── js/                   # フロントエンドスクリプト
 ├── templates/                 # HTMLテンプレート
-├── local_storage/            # ローカル開発用ストレージ
+├── tmp_workspace/            # 作業用スペース
 ├── .env.local                # ローカル開発用環境変数
 ├── .env.example           # 環境変数テンプレート
 ├── .gitignore            # Git除外設定
@@ -131,31 +131,78 @@ pdf-bulk-converter/
 
 ## 🚀 クイックスタート (ローカル環境)
 
+### セットアップスクリプトを使用する方法（推奨）
 ```bash
-# 1. 依存関係のインストール
-$ python -m venv venv
-$ source venv/bin/activate  # Windows: venv\Scripts\activate
-$ pip install -r requirements.txt
+# 1. セットアップスクリプトを実行（Python 3.11以上が自動で設定されます）
+$ chmod +x setup.sh
+$ ./setup.sh
 
-# 2. 環境変数を設定
-$ cp .env.local .env
+# 2. 仮想環境を有効化
+$ source venv/bin/activate  # Windows: venv\Scripts\activate
 
 # 3. ローカル開発サーバー起動
 $ uvicorn app.main:app --reload
 ```
 
+### pyenvを使用したセットアップ（Pythonバージョン切り替えが必要な場合）
+```bash
+# 1. pyenvを使用したセットアップスクリプトを実行
+$ chmod +x setup_with_pyenv.sh
+$ ./setup_with_pyenv.sh
+
+# 2. 仮想環境を有効化
+$ source venv/bin/activate  # Windows: venv\Scripts\activate
+
+# 3. ローカル開発サーバー起動
+$ uvicorn app.main:app --reload
+```
+
+### 手動セットアップ（上級者向け）
+```bash
+# 1. Python 3.11以上がインストールされていることを確認
+$ python --version
+
+# 2. 仮想環境を作成
+$ python -m venv venv
+$ source venv/bin/activate  # Windows: venv\Scripts\activate
+$ pip install --upgrade pip setuptools wheel
+
+# 3. 依存関係をインストール
+$ pip install -r requirements.txt
+
+# 4. 環境変数を設定
+$ cp .env.local .env
+
+# 5. ローカル開発サーバー起動
+$ uvicorn app.main:app --reload
+```
+
 ### インストール時の注意点
-- Python 3.11以上が必要です
-- PyMuPDFのインストールには、システムにMuPDFライブラリが必要な場合があります
+- Python 3.11以上が必要です（セットアップスクリプトで自動対応）
+- `setup.sh`を実行すると、Pythonのバージョンが自動的にチェックされます
+  - Python 3.11以上が利用可能な場合はそのまま使用
+  - 3.11未満の場合は自動的に`setup_with_pyenv.sh`が実行され、pyenvを使用して適切なPythonバージョンがインストールされます
+- PyMuPDFのインストールには、システムにMuPDFライブラリが必要な場合があります（セットアップスクリプトで自動インストールします）
+
+### トラブルシューティング 🚨
+
+#### 自動設定がうまくいかない場合 🔄
+  - `python --version` で現在のバージョンを確認
+  - `which python` で使用しているPythonの場所を確認
+
+#### 環境変数の問題 🌐
+  - `.env` ファイルが正しく生成されているか確認
+  - 手動で `cp .env.local .env` を実行
+
+#### PyMuPDFのインストール問題 📦
   - macOS: `brew install mupdf`
   - Ubuntu: `apt-get install libmupdf-dev`
-  - Windows: 通常は自動的にインストールされます
+  - Windows: Microsoft Visual C++ Redistributableのインストールが必要な場合があります
 
-### 仮想環境の問題解決
-- 仮想環境の作成に失敗する場合: `python -m venv venv --clear`を試してください
-- 依存関係のインストールに失敗する場合: `pip install --upgrade pip`を実行してから再試行してください
-- PyMuPDFのインストールに失敗する場合: システムにMuPDFライブラリがインストールされているか確認してください
-- 環境変数`GCP_REGION`変更後に切替が上手くいかない場合は、 `unset GCP_REGION`を実行してから再試行してください
+#### その他 🤔
+  - 仮想環境の作成に失敗する場合: `python -m venv venv --clear` を試してください
+  - 環境変数`GCP_REGION`変更後に切替が上手くいかない場合は:
+    - `unset GCP_REGION` を実行してから再試行
 
 ---
 
@@ -164,10 +211,9 @@ $ uvicorn app.main:app --reload
 | 変数           | 例                | 説明                           |
 |----------------|-------------------|------------------------------|
 | `GCP_REGION`  | `local`           | GoogleCloud 接続リージョン (ローカル実行時は`local`) |
-| `GCP_PROJECT` | `./local_storage` | GoogleCloud プロジェクト名       |
-| `GCS_BUCKET_RAW` | `pdf-raw-bucket` | CloudStorage アップロードファイル格納フォルダ       |
-| `GCS_BUCKET_ZIP` | `pdf-zip-bucket` | CloudStorage 変換ZIP格納フォルダ       |
-| `GCP_PROJECT` | `./local_storage` | GoogleCloud プロジェクト名       |
+| `GCS_KEYPATH` | `"./config/service_account.json"` | CloudCloud サービスアカウント認証鍵JSONの格納場所 |
+| `GCS_BUCKET_IMAGE` | `bucket-name-image` | CloudStorage 変換画像ファイル格納バケット名       |
+| `GCS_BUCKET_WORKS` | `bucket-name-works` | CloudStorage 作業ファイル格納バケット名       |
 | `SIGN_URL_EXP` | `3600`           | 発行URL有効時間(秒数)            |
 
 ---

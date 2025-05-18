@@ -30,6 +30,7 @@ pending_files = {}
 def get_session_id(request: SessionRequest):
     try:
         session_url, session_id = generate_session_url()
+        print(f"session_id: {session_id}")
         initial_session = SessionStatus(
             session_id=session_id,
             status="uploading",

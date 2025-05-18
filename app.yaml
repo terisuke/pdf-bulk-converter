@@ -3,6 +3,11 @@ instance_class: F4
 
 env_variables:
   PYTHONPATH: /app
+  GCP_REGION: asia-northeast1
+  GCP_KEYPATH: "./config/service_account.json"
+  GCS_BUCKET_IMAGE: bucket-name-image
+  GCS_BUCKET_WORKS: bucket-name-works
+  SIGN_URL_EXP: 3600
 
 automatic_scaling:
   target_cpu_utilization: 0.65
@@ -19,3 +24,6 @@ entrypoint: uvicorn app.main:app --host 0.0.0.0 --port $PORT --limit-max-request
 
 # Cloud Runのリクエストサイズ制限を1000MBに設定
 max_request_size: 1000m 
+
+# GCS_BUCKET_IMAGE: 実際のCloud Storage画像バケット名
+# GCS_BUCKET_WORKS: 実際のCloud Storage作業バケット名    

@@ -80,7 +80,7 @@ def generate_download_url(session_id: str) -> str:
         return f"/local-download/{session_id}/{encoded_filename}"
     else:
         # クラウドモード: 署名付きURLを生成
-        bucket = client.bucket(settings.gcs_bucket)
+        bucket = client.bucket(settings.gcs_bucket_works)
         blob = bucket.blob(f"{session_id}/all_pdfs_images.zip")
         
         url = blob.generate_signed_url(
@@ -100,4 +100,4 @@ def cleanup_job(job_id: str):
             shutil.rmtree(job_path)
     else:
         # クラウドモードのクリーンアップはCloud Storageのライフサイクルポリシーに任せる
-        pass    
+        pass        

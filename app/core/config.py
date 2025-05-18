@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     gcs_bucket_works: Optional[str] = None     # アップロードしたPDF・ZIPや変換圧縮したZIPなど、セッションデータを格納 (local_workspaceに相当)
     
     # 作業用スペース設定
-    workspace_path: str = "tmp_workspace"
+    workspace_path: str = "tmp_workspace"  # デフォルト値（__init__で上書き可能）
     
     # 署名付きURL設定
     sign_url_exp: int = 3600
@@ -26,6 +26,9 @@ class Settings(BaseSettings):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        if self.gcp_region != "local":
+            self.workspace_path = "/tmp/workspace"
+        
         # サービスアカウントJSONファイルからproject_idを読み込む
         if self.gcp_region != "local" and os.path.exists(self.gcp_keypath):
             with open(self.gcp_keypath, 'r') as f:
@@ -46,4 +49,4 @@ class Settings(BaseSettings):
 
 @lru_cache()
 def get_settings() -> Settings:
-    return Settings() 
+    return Settings()      

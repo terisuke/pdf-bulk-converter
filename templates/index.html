@@ -19,6 +19,7 @@
               type="file"
               id="pdfFile"
               accept=".pdf,.zip"
+              multiple
               class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
             />
             <button
@@ -29,6 +30,14 @@
             </button>
           </div>
           <div class="flex items-center space-x-4">
+            <label class="text-sm text-gray-600">開始番号:</label>
+            <input
+              type="number"
+              id="startNumber"
+              min="1"
+              value="1"
+              class="border rounded px-2 py-1 w-20"
+            />
             <label class="text-sm text-gray-600">DPI:</label>
             <select id="dpi" class="border rounded px-2 py-1">
               <option value="150">150</option>

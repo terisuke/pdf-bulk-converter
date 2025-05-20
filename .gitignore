@@ -35,6 +35,7 @@ env/
 
 # Project specific
 local_storage/
+tmp_workspace/
 *.pdf
 *.jpg
 *.jpeg

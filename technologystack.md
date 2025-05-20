@@ -1,65 +1,72 @@
-# ⚠️ 参照用ドキュメント
+# ⚠️ アーカイブ済み
 
-このファイルは参照用として維持されています。
-最新の情報は `README.md` を参照してください。
+このファイルは古いバージョンの参照用として維持されています。
+**最新の情報は必ず `README.md` を参照してください。**
 
 ---
 
 # 技術スタック
 
 ## バックエンド
-- **Python 3.11**
+- **Python 3.11+** (3.12推奨)
   - 最新の型ヒントと非同期処理機能を活用
-- **FastAPI**
+- **FastAPI: 0.109.2**
   - 高性能な非同期Webフレームワーク
   - OpenAPI（Swagger）による自動API文書生成
   - Pydanticによる堅牢なデータバリデーション
-- **PyMuPDF (fitz)**
+- **uvicorn: 0.27.1**
+  - ASGIサーバー
+- **PyMuPDF**
   - 高速なPDF処理
   - 高品質な画像変換機能
+- **zipstream: 1.1.4** 
+  - ストリーミングZIP生成
+- **python-multipart: 0.0.9**
+  - マルチパートフォームデータ処理
+- **python-dotenv: 1.0.1**
+  - 環境変数管理
+- **pydantic: 2.6.1**
+  - データバリデーション
+- **pydantic-settings: 2.1.0**
+  - 設定管理
+- **jinja2: 3.1.3**
+  - テンプレートエンジン
 
 ## クラウドサービス
-- Google Cloud Platform
+- **Google Cloud Platform**
   - Cloud Run: コンテナ実行環境
-  - Cloud Tasks: 非同期ジョブ管理
   - Cloud Storage: ファイルストレージ
-  - Cloud Scheduler: クリーンアップジョブ
 
 ## フロントエンド
-- **HTML/CSS/JavaScript**
+- **HTML5/CSS**
   - シンプルで効果的なUI
-  - レスポンシブデザイン
+- **JavaScript (Vanilla)**
   - 非同期アップロード処理
+  - EventSource: Server-Sent Events
+  - Fetch API
+- **Tailwind CSS: 3.4.17**
+  - ユーティリティファーストCSSフレームワーク
 
 ## 開発ツール
 - **Docker**
   - コンテナ化による環境の一貫性確保
   - 簡単なデプロイメント
-- **GitHub Actions: CI/CD**
-- **Cloud Build: コンテナビルド**
-- **Terraform: インフラ定義（オプション）**
-
-## 重要な制約事項
-- PDFレンダリングは PyMuPDF (fitz) を使用（バージョン変更禁止）
-- Cloud Storage のライフサイクルポリシーは24時間
-- 署名付きURLの有効期限は環境変数で設定（デフォルト3600秒）
 
 ## 実装規則
-- 非同期処理は Cloud Tasks を使用
-- ファイル操作は Cloud Storage の署名付きURLを使用
+- 非同期処理はasync/awaitを使用
 - 進捗通知は Server-Sent Events を使用
 - エラーハンドリングは FastAPI の例外処理を使用
 
-## 開発環境
-- **環境変数管理**
-  - `.env`ファイルによる設定管理
-  - 開発/本番環境の分離
-
 ## ストレージ
-- **ローカルファイルシステム**
-  - アップロードされたPDFの一時保存
-  - 生成された画像の保存
-  - 非同期処理用のジョブキュー管理
+- **ローカルモード**
+  - アップロードされたPDFのローカル保存
+  - 生成された画像のローカル保存
+  - /tmp_workspace/にセッションごとのディレクトリを作成
+
+- **クラウドモード**
+  - Cloud Storage を使用したPDFのアップロード
+  - 画像ファイルのCloud Storageへの保存
+  - 署名付きURLによるアップロード/ダウンロード
 
 ## セキュリティ
 - **CORS設定**

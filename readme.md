@@ -1,4 +1,4 @@
-# �� PDF Bulk Converter
+# PDF Bulk Converter
 
 高画質 PDF → JPEG変換 & ZIP ダウンロードを提供するブラウザアプリケーションの README です。
 
@@ -27,7 +27,7 @@
 ## 🏗️ 技術スタック
 
 * **Backend**  
-  * Python: 3.11
+  * Python: 3.11+ (3.12推奨)
   * FastAPI: 0.109.2 (ASGI, SSE, OpenAPI)  
   * PyMuPDF: PDF → JPEG 変換  
   * uvicorn: 0.27.1
@@ -68,7 +68,8 @@ pdf-bulk-converter/
 │   │   ├── config.py           # 設定管理
 │   │   └── job_status.py       # ジョブ状態管理
 │   ├── services/               # ビジネスロジック
-│   │   └── converter.py       # PDF変換処理
+│   │   ├── converter.py       # PDF変換処理
+│   │   └── storage.py         # ストレージ管理
 │   ├── models/                 # データモデル
 │   │   └── schemas.py         # Pydanticモデル
 │   ├── static/                # アプリケーション固有の静的ファイル
@@ -77,8 +78,8 @@ pdf-bulk-converter/
 │   ├── css/                  # スタイルシート
 │   └── js/                   # フロントエンドスクリプト
 ├── templates/                 # HTMLテンプレート
-├── local_storage/            # ローカル開発用ストレージ
-├── .env                    # 環境変数
+├── tmp_workspace/            # 作業用スペース
+├── .env.local                # ローカル開発用環境変数
 ├── .env.example           # 環境変数テンプレート
 ├── .gitignore            # Git除外設定
 ├── Dockerfile            # コンテナ設定
@@ -106,7 +107,6 @@ pdf-bulk-converter/
 [FastAPI Server]
   │
   ├─ 2. PDF Processing
-  │   ├─ ZIP展開 (オプション)
   │   └─ JPEG変換 (PyMuPDF)
   │
   └─ 3. Progress Updates (SSE)
@@ -119,40 +119,116 @@ pdf-bulk-converter/
 
 | Method | Path                     | 説明                    |
 |--------|--------------------------|-------------------------|
-| `POST` | `/api/upload`            | PDFまたはZIPファイルをアップロード    |
-| `GET`  | `/api/status/{job_id}`   | SSE でジョブ進捗をリアルタイムに返す |
-| `GET`  | `/api/download/{job_id}` | 変換済みZIPファイルをダウンロード   |
+| `POST` | `/api/session`           | アップロードセッション開始、ファイル連番起点指定  |
+| `POST` | `/api/upload-url`        | アップロードURLを取得、ジョブID発行            |
+| `GET`  | `/api/session-status/{job_id}`   | SSE でセッション進捗をリアルタイムに返す |
+| `GET`  | `/api/job-status/{job_id}`   | SSE でジョブ進捗をリアルタイムに返す |
+| `POST` | `/api/local-upload/{session_id}/{job_id}/{filename} | PDFファイルアップロード (ローカル用) |
+| `POST` | `/api/create-zip/{session_id} | ZIPファイル作成 |
+| `GET`  | `/api/download/{session}` | 変換済みZIPファイルをダウンロード   |
 
 ---
 
-## 🚀 クイックスタート
+## 🚀 クイックスタート (ローカル環境)
 
+### セットアップスクリプトを使用する方法（推奨）
 ```bash
-# 1. 依存関係のインストール
-$ python -m venv venv
-$ source venv/bin/activate  # Windows: venv\Scripts\activate
-$ pip install -r requirements.txt
+# 1. セットアップスクリプトを実行（Python 3.11以上が自動で設定されます）
+$ chmod +x setup.sh
+$ ./setup.sh
 
-# 2. 環境変数を設定
-$ cp .env.example .env
+# 2. 仮想環境を有効化
+$ source venv/bin/activate  # Windows: venv\Scripts\activate
 
 # 3. ローカル開発サーバー起動
 $ uvicorn app.main:app --reload
 ```
 
+### pyenvを使用したセットアップ（Pythonバージョン切り替えが必要な場合）
+```bash
+# 1. pyenvを使用したセットアップスクリプトを実行
+$ chmod +x setup_with_pyenv.sh
+$ ./setup_with_pyenv.sh
+
+# 2. 仮想環境を有効化
+$ source venv/bin/activate  # Windows: venv\Scripts\activate
+
+# 3. ローカル開発サーバー起動
+$ uvicorn app.main:app --reload
+```
+
+### 手動セットアップ（上級者向け）
+```bash
+# 1. Python 3.11以上がインストールされていることを確認
+$ python --version
+
+# 2. 仮想環境を作成
+$ python -m venv venv
+$ source venv/bin/activate  # Windows: venv\Scripts\activate
+$ pip install --upgrade pip setuptools wheel
+
+# 3. 依存関係をインストール
+$ pip install -r requirements.txt
+
+# 4. 環境変数を設定
+$ cp .env.local .env
+
+# 5. ローカル開発サーバー起動
+$ uvicorn app.main:app --reload
+```
+
+### インストール時の注意点
+- Python 3.11以上が必要です（セットアップスクリプトで自動対応）
+- `setup.sh`を実行すると、Pythonのバージョンが自動的にチェックされます
+  - Python 3.11以上が利用可能な場合はそのまま使用
+  - 3.11未満の場合は自動的に`setup_with_pyenv.sh`が実行され、pyenvを使用して適切なPythonバージョンがインストールされます
+- PyMuPDFのインストールには、システムにMuPDFライブラリが必要な場合があります（セットアップスクリプトで自動インストールします）
+
+### トラブルシューティング 🚨
+
+#### 自動設定がうまくいかない場合 🔄
+  - `python --version` で現在のバージョンを確認
+  - `which python` で使用しているPythonの場所を確認
+
+#### 環境変数の問題 🌐
+  - `.env` ファイルが正しく生成されているか確認
+  - 手動で `cp .env.local .env` を実行
+
+#### PyMuPDFのインストール問題 📦
+  - macOS: `brew install mupdf`
+  - Ubuntu: `apt-get install libmupdf-dev`
+  - Windows: Microsoft Visual C++ Redistributableのインストールが必要な場合があります
+
+#### その他 🤔
+  - 仮想環境の作成に失敗する場合: `python -m venv venv --clear` を試してください
+  - 環境変数`GCP_REGION`変更後に切替が上手くいかない場合は:
+    - `unset GCP_REGION` を実行してから再試行
+
 ---
 
 ## ⚙️ 環境変数 (.env)
 
-| 変数           | 例                | 説明       |
-|----------------|-------------------|----------|
-| `STORAGE_PATH` | `./local_storage` | ファイル保存パス |
+| 変数           | 例                | 説明                           |
+|----------------|-------------------|------------------------------|
+| `GCP_REGION`  | `local`           | GoogleCloud 接続リージョン (ローカル実行時は`local`) |
+| `GCS_KEYPATH` | `"./config/service_account.json"` | CloudCloud サービスアカウント認証鍵JSONの格納場所 |
+| `GCS_BUCKET_IMAGE` | `bucket-name-image` | CloudStorage 変換画像ファイル格納バケット名       |
+| `GCS_BUCKET_WORKS` | `bucket-name-works` | CloudStorage 作業ファイル格納バケット名       |
+| `SIGN_URL_EXP` | `3600`           | 発行URL有効時間(秒数)            |
 
 ---
 
 ## 📝 最近の更新
 
-### 2024-04-18
+### 2025-04-26
+- ✅ ダウンロードボタンの表示問題を修正
+  - ZIPファイル名の不一致を解消
+  - フロントエンドのダウンロードURL取得処理を改善
+- ✅ ストレージ管理の改善
+  - ローカルモードでのZIPファイル検索ロジックを強化
+  - ファイル名のエンコーディング処理を改善
+
+### 2025-04-18
 - ✅ 出力形式をJPEGに統一
   - 画質と容量のバランスを最適化
   - UI/UXの簡素化

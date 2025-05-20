@@ -1,15 +1,38 @@
-async function checkJobStatus(jobId) {
-    const eventSource = new EventSource(`/api/status/${jobId}`);
+async function checkSessionStatus(sessionId) {
+    const eventSource = new EventSource(`/api/sesion-status/${sessionId}`);
     
     eventSource.onmessage = function(event) {
         const status = JSON.parse(event.data);
         updateStatus(status);
         
-        if (status.status === 'completed' || status.status === 'error') {
+        if (status.status === 'error') {
             eventSource.close();
-            if (status.status === 'completed') {
-                showDownloadButton(jobId);
-            }
+        } else if (status.status === 'completed') {
+            eventSource.close();
+            showDownloadButton(sessionId);
+        }
+    };
+    
+    eventSource.onerror = function(error) {
+        console.error('SSE Error:', error);
+        eventSource.close();
+        updateStatus({
+            status: 'error',
+            message: 'ステータスの取得中にエラーが発生しました',
+            progress: 0
+        });
+    };
+}
+
+async function checkJobStatus(jobId) {
+    const eventSource = new EventSource(`/api/job-status/${jobId}`);
+    
+    eventSource.onmessage = function(event) {
+        const status = JSON.parse(event.data);
+        updateStatus(status);
+        
+        if (status.status === 'error') {
+            eventSource.close();
         }
     };
     
@@ -48,7 +71,7 @@ function updateStatus(status) {
     }
 }
 
-function showDownloadButton(jobId) {
+function showDownloadButton(sessionId) {
     const downloadContainer = document.getElementById('download-container');
     const statusElement = document.getElementById('status');
     
@@ -56,7 +79,7 @@ function showDownloadButton(jobId) {
     statusElement.className = 'text-green-500';
     
     downloadContainer.innerHTML = `
-        <a href="/api/download/${jobId}" 
+        <a href="/api/download/${sessionId}" 
            class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded">
             変換されたファイルをダウンロード
         </a>

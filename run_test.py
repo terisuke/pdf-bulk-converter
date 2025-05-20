@@ -3,7 +3,6 @@ import os
 import shutil
 import uuid
 from pathlib import Path
-from app.services.converter import convert_pdf_to_images
 from app.core.config import get_settings
 from app.core.process import process_input
 from app.core.job_status import job_status_manager
@@ -12,7 +11,7 @@ async def test_conversion():
     settings = get_settings()
     job_id = f"test-job-{uuid.uuid4().hex[:8]}"
     
-    job_dir = os.path.join(settings.local_storage_path, job_id)
+    job_dir = os.path.join(settings.workspace_path, job_id)
     os.makedirs(job_dir, exist_ok=True)
     print(f"Created job directory: {job_dir}")
     

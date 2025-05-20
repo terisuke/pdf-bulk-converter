@@ -23,13 +23,13 @@ if (( major < 3 || (major == 3 && minor < 11) )); then
     echo "現在のシステムPythonバージョン $python_version は互換性がありません。"
     echo ""
     echo "正しいPythonバージョンをインストールするためにsetup_with_pyenv.shを使用してみます..."
-    
+
     # Make setup_with_pyenv.sh executable
     chmod +x setup_with_pyenv.sh
-    
+
     # Run setup_with_pyenv.sh
     ./setup_with_pyenv.sh
-    
+
     # Exit this script after setup_with_pyenv.sh is run
     exit $?
 fi
@@ -54,33 +54,38 @@ source venv/bin/activate
 chmod +x requirements-fix.py
 
 # Use our custom requirements-fix.py script to install dependencies
- echo "requirements-fix.py を使用して依存関係をインストールします..."
- if ! ./requirements-fix.py; then
-   echo "エラー: requirements-fix.py の実行に失敗しました。MuPDF専用オプションで再試行します..."
-   ./requirements-fix.py --mupdf-only || {
-     echo "MuPDF専用オプションでも失敗したため、リクワイアメントからインストールを試行します..."
-     python3 -m pip install -r requirements.txt || {
-       echo "依存関係のインストールに最終的に失敗しました。"
-       exit 1
-     }
-   }
- fi
- fi
-  fi
-        echo "エラー: MuPDFを修正した後でも依存関係のインストールに失敗しました。"
-        echo ""
-        echo "可能な解決策:"
-        echo "1. PyMuPDFの問題について:"
-        echo "   - macOS: brew install mupdf"
-        echo "   - Ubuntu: apt-get install libmupdf-dev"
-        echo "   - Windows: Microsoft Visual C++ Redistributableがインストールされていることを確認してください。"
-        echo "2. 問題のあるパッケージを手動でインストールしてみてください:"
-        echo "   - pip install PyMuPDF==1.23.26"
-        echo "3. Pythonバージョンの互換性を確認してください。"
-        echo ""
-        exit 1
+echo "requirements-fix.py を使用して依存関係をインストールします..."
+
+# Attempt installation with requirements-fix.py
+if ./requirements-fix.py; then
+    echo "依存関係のインストールに成功しました。"
+else
+    echo "エラー: requirements-fix.py の実行に失敗しました。MuPDF専用オプションで再試行します..."
+    # Attempt installation with requirements-fix.py --mupdf-only
+    if ./requirements-fix.py --mupdf-only; then
+        echo "依存関係のインストールに成功しました (MuPDF専用オプションを使用)。"
+    else
+        echo "エラー: MuPDF専用オプションでも失敗したため、リクワイアメントからインストールを試行します..."
+        # Attempt installation with pip install -r requirements.txt
+        if python3 -m pip install -r requirements.txt; then
+            echo "依存関係のインストールに成功しました (requirements.txt から)。"
+        else
+            echo "エラー: 依存関係のインストールに最終的に失敗しました。"
+            echo ""
+            echo "可能な解決策:"
+            echo "1. PyMuPDFの問題について:"
+            echo "   - macOS: brew install mupdf"
+            echo "   - Ubuntu: apt-get install libmupdf-dev"
+            echo "   - Windows: Microsoft Visual C++ Redistributableがインストールされていることを確認してください。"
+            echo "2. 問題のあるパッケージを手動でインストールしてみてください:"
+            echo "   - pip install PyMuPDF==1.23.26" # バージョンはrequirements.txtに合わせてください
+            echo "3. Pythonバージョンの互換性を確認してください。"
+            echo ""
+            exit 1
+        fi
     fi
 fi
+
 
 # 環境変数ファイルをコピー
 echo ""

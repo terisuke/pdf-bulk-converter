@@ -61,30 +61,32 @@
 pdf-bulk-converter/
 ├── app/                          # FastAPIアプリケーション
 │   ├── api/                      # APIエンドポイント
-│   │   ├── upload.py            # アップロード関連
-│   │   ├── status.py           # ジョブステータス関連
-│   │   └── download.py         # ダウンロード関連
+│   │   └── upload.py            # アップロード関連・ジョブステータス・ダウンロード関連
 │   ├── core/                    # コア機能
 │   │   ├── config.py           # 設定管理
-│   │   └── job_status.py       # ジョブ状態管理
+│   │   ├── job_status.py       # ジョブ状態管理
+│   │   └── session_status.py   # セッション状態管理
 │   ├── services/               # ビジネスロジック
 │   │   ├── converter.py       # PDF変換処理
-│   │   └── storage.py         # ストレージ管理
+│   │   ├── storage.py         # ストレージ管理
+│   │   ├── job_status.py      # ジョブ状態サービス
+│   │   └── cleanup.py         # クリーンアップ処理
 │   ├── models/                 # データモデル
 │   │   └── schemas.py         # Pydanticモデル
-│   ├── static/                # アプリケーション固有の静的ファイル
 │   └── main.py                 # アプリケーションエントリーポイント
 ├── static/                    # グローバルな静的ファイル
 │   ├── css/                  # スタイルシート
 │   └── js/                   # フロントエンドスクリプト
 ├── templates/                 # HTMLテンプレート
 ├── tmp_workspace/            # 作業用スペース
-├── .env.local                # ローカル開発用環境変数
-├── .env.example           # 環境変数テンプレート
-├── .gitignore            # Git除外設定
-├── Dockerfile            # コンテナ設定
-├── requirements.txt     # Python依存関係
-└── README.md         # プロジェクト説明
+├── uploads/                  # アップロードされたファイル
+├── output/                   # 出力ファイル
+├── local_storage/            # ローカルストレージ
+├── .env                      # 環境変数
+├── .gitignore                # Git除外設定
+├── Dockerfile                # コンテナ設定
+├── requirements.txt          # Python依存関係
+└── README.md                 # プロジェクト説明
 ```
 
 ### 配置ルール
@@ -121,11 +123,13 @@ pdf-bulk-converter/
 |--------|--------------------------|-------------------------|
 | `POST` | `/api/session`           | アップロードセッション開始、ファイル連番起点指定  |
 | `POST` | `/api/upload-url`        | アップロードURLを取得、ジョブID発行            |
-| `GET`  | `/api/session-status/{job_id}`   | SSE でセッション進捗をリアルタイムに返す |
+| `GET`  | `/api/session-status/{session_id}`   | SSE でセッション進捗をリアルタイムに返す |
 | `GET`  | `/api/job-status/{job_id}`   | SSE でジョブ進捗をリアルタイムに返す |
-| `POST` | `/api/local-upload/{session_id}/{job_id}/{filename} | PDFファイルアップロード (ローカル用) |
-| `POST` | `/api/create-zip/{session_id} | ZIPファイル作成 |
-| `GET`  | `/api/download/{session}` | 変換済みZIPファイルをダウンロード   |
+| `POST` | `/api/local-upload/{session_id}/{job_id}/{filename}` | PDFファイルアップロード (ローカル用) |
+| `POST` | `/api/create-zip/{session_id}` | ZIPファイル作成 |
+| `GET`  | `/api/download/{session_id}` | 変換済みZIPファイルダウンロード用URLを取得 |
+| `GET`  | `/local-download/{session_id}/{filename}` | ローカル環境でのZIPファイルダウンロード |
+| `PUT`  | `/api/session-update/{session_id}` | セッションのステータスを更新 |
 
 ---
 
@@ -171,7 +175,7 @@ $ pip install --upgrade pip setuptools wheel
 $ pip install -r requirements.txt
 
 # 4. 環境変数を設定
-$ cp .env.local .env
+$ cp .env.example .env  # または既存の.envファイルを確認・編集
 
 # 5. ローカル開発サーバー起動
 $ uvicorn app.main:app --reload
@@ -191,8 +195,8 @@ $ uvicorn app.main:app --reload
   - `which python` で使用しているPythonの場所を確認
 
 #### 環境変数の問題 🌐
-  - `.env` ファイルが正しく生成されているか確認
-  - 手動で `cp .env.local .env` を実行
+  - `.env` ファイルが正しく設定されているか確認
+  - 必要に応じて `.env.example` を参考に `.env` ファイルを作成・編集
 
 #### PyMuPDFのインストール問題 📦
   - macOS: `brew install mupdf`
@@ -209,9 +213,9 @@ $ uvicorn app.main:app --reload
 ## ⚙️ 環境変数 (.env)
 
 | 変数           | 例                | 説明                           |
-|----------------|-------------------|------------------------------|
+|----------------|-------------------|-------------------------------|
 | `GCP_REGION`  | `local`           | GoogleCloud 接続リージョン (ローカル実行時は`local`) |
-| `GCS_KEYPATH` | `"./config/service_account.json"` | CloudCloud サービスアカウント認証鍵JSONの格納場所 |
+| `GCP_KEYPATH` | `./config/service_account.json` | GoogleCloud サービスアカウント認証鍵JSONの格納場所 |
 | `GCS_BUCKET_IMAGE` | `bucket-name-image` | CloudStorage 変換画像ファイル格納バケット名       |
 | `GCS_BUCKET_WORKS` | `bucket-name-works` | CloudStorage 作業ファイル格納バケット名       |
 | `SIGN_URL_EXP` | `3600`           | 発行URL有効時間(秒数)            |
@@ -219,6 +223,13 @@ $ uvicorn app.main:app --reload
 ---
 
 ## 📝 最近の更新
+
+### 2025-05-22
+- ✅ README.mdを更新
+  - 実際のプロジェクト構造と一致するように修正
+  - API仕様の記述を正確に修正
+  - 環境変数の設定手順を明確化
+  - その他、誤記や不正確な情報を修正
 
 ### 2025-04-26
 - ✅ ダウンロードボタンの表示問題を修正

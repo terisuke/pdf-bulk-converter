@@ -107,24 +107,6 @@ def main():
             
         logger.info("Job completed successfully")
         
-        logger.info("Creating ZIP file...")
-        response = requests.post(f"{API_BASE_URL}/api/create-zip/{session_id}")
-        if response.status_code != 200:
-            logger.error(f"Failed to create ZIP file: {response.text}")
-            return
-            
-        logger.info("ZIP file created successfully")
-        
-        logger.info("Getting download URL...")
-        response = requests.get(f"{API_BASE_URL}/api/download/{session_id}")
-        if response.status_code != 200:
-            logger.error(f"Failed to get download URL: {response.text}")
-            return
-            
-        download_data = response.json()
-        download_url = download_data.get("download_url")
-        logger.info(f"Download URL received: {download_url}")
-        
         logger.info("PDF conversion test completed successfully")
         
     except Exception as e:

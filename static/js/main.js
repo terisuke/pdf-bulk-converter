@@ -101,49 +101,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            // アップロード完了後、セッションのステータスを"zipping"に更新
-            const updateSessionStatus = await fetch(`/api/session-update/${currentSessionId}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    status: 'zipping',
-                    progress: 90.0,
-                    message: 'ZIPファイルを作成中...'
-                })
-            });
-            if (!updateSessionStatus.ok) {
-                throw new Error('セッションステータスの更新に失敗しました');
-            }
-
-            // 変換完了後、ZIPファイルの生成をリクエスト
-            const zipResponse = await fetch(`/api/create-zip/${currentSessionId}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            });
-
-            if (!zipResponse.ok) {
-                throw new Error('ZIPファイルの生成に失敗しました');
-            }
-
-            // ZIPファイルの生成が完了するまで少し待機
-            // HACK: ひとまず1秒待ち。以前のPDF→画像変換と同様、完了を検知して制御するようにしたい
-            await new Promise(resolve => setTimeout(resolve, 1000));
-
-            // ダウンロードURLを取得
-            const downloadResponse = await fetch(`/api/download/${currentSessionId}`);
+            // アップロード完了後、変換処理の完了を待つだけ（変換完了はSSEで通知される）
+            progressText.textContent = 'PDFファイルをアップロードしました。変換処理が完了するまでお待ちください...';
             
-            if (downloadResponse.ok) {
-                const downloadData = await downloadResponse.json();
-                downloadLink.href = downloadData.download_url;
-                progressDiv.classList.add('hidden');
-                resultDiv.classList.remove('hidden');
-            } else {
-                progressText.textContent = '変換は完了しましたが、ダウンロードURLの取得に失敗しました。';
-            }
         } catch (error) {
             console.error('Error:', error);
             alert('エラーが発生しました: ' + error.message);
@@ -159,9 +119,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (status === 'completed') {
             eventSource.close();
+            progressDiv.classList.add('hidden');
+            resultDiv.classList.remove('hidden');
+            downloadLink.style.display = 'none';
+            document.querySelector('#result p').textContent = '変換が完了しました。画像はGCS_BUCKET_IMAGEに保存されました。';
         } else if (status === 'error') {
             eventSource.close();
             alert('エラーが発生しました: ' + message);
         }
     }
-});                    
+});                                        

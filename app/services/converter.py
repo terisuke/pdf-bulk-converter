@@ -146,7 +146,7 @@ async def convert_1pdf_to_images(session_id: str, job_id: str, pdf_path: str, dp
         return images_dir, []
 
 # 複数のPDFファイルを処理する関数を追加
-async def convert_pdfs_to_images(session_id: str, job_id: str, pdf_paths: List[str], dpi: int = 300, format: str = "jpeg") -> Tuple[str, List[str]]:
+async def convert_pdfs_to_images(session_id: str, job_id: str, pdf_paths: List[str], dpi: int = 300, format: str = "jpeg", imagenum: int = 0) -> Tuple[str, List[str]]:
     """
     PDFファイルを画像変換する (複数対応)
     
@@ -156,7 +156,7 @@ async def convert_pdfs_to_images(session_id: str, job_id: str, pdf_paths: List[s
         pdf_paths: PDFファイルのパスリスト
         dpi: 出力画像のDPI
         format: 出力形式（常にjpeg）
-        imagenum_start: 
+        imagenum: 画像番号の開始値
     
     Returns:
         Tuple[画像格納ディレクトリ, 生成された画像ファイルのパスリスト]
@@ -203,6 +203,19 @@ async def convert_pdfs_to_images(session_id: str, job_id: str, pdf_paths: List[s
         )
         job_status_manager.update_status(job_id, job_complete_status)
         
+        session_status_manager.update_status(
+            session_id, 
+            SessionStatus(
+                session_id=session_id,
+                status="completed",
+                message="PDF変換が完了しました",
+                progress=100,
+                pdf_num=len(pdf_paths),
+                image_num=session_status_manager.get_imagenum(session_id),
+                created_at=datetime.now()
+            )
+        )
+        
         return images_dir, all_image_paths
         
     except Exception as e:
@@ -220,102 +233,102 @@ async def convert_pdfs_to_images(session_id: str, job_id: str, pdf_paths: List[s
         job_status_manager.update_status(job_id, error_status)
         raise
 
-# ZIPファイルの作成
-def create_zip_file(session_id: str, image_paths: List[str]) -> str:
-    """
-    画像ファイルをZIPにまとめる
-    
-    Args:
-        session_id: セッションID
-        image_paths: 画像ファイルのパスのリスト
-        
-    Returns:
-        str: 作成されたZIPファイルのパス
-    """
-    try:
-        logger.info(f"Creating ZIP file for session: {session_id} with {len(image_paths)} images")
-        
-        # 最初の画像ファイル名からベース名を取得
-        if not image_paths:
-            error_msg = "No images to create ZIP file"
-            logger.error(error_msg)
-            session_status_manager.update_status(
-                session_id, 
-                SessionStatus(
-                    session_id=session_id,
-                    status="error",
-                    message=error_msg,
-                    progress=0,
-                    pdf_num=0,
-                    image_num=0,
-                    created_at=datetime.now()
-                )
-            )
-            return ""
-            
-        base_name = os.path.splitext(os.path.basename(image_paths[0]))[0].split('_page')[0]
-        zip_filename = "all_pdfs_images.zip"
-        zip_path = os.path.join(settings.get_session_dirpath(session_id), zip_filename)
-        
-        logger.info(f"Creating ZIP file at: {zip_path}")
-        with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
-            for image_path in image_paths:
-                # ファイル名のみを取得（ディレクトリパスを除外）
-                arcname = os.path.basename(image_path)
-                logger.info(f"Adding file to ZIP: {arcname}")
-                # UTF-8でファイル名を保存
-                zipf.write(image_path, arcname)
-        
-        current_status = session_status_manager.get_status(session_id)
-        
-        # current_statusがNoneの場合のデフォルト値を設定
-        pdf_num = 0
-        image_num = 0
-        if current_status:
-            pdf_num = current_status.pdf_num if hasattr(current_status, 'pdf_num') else 0
-            image_num = current_status.image_num if hasattr(current_status, 'image_num') else 0
-        
-        status = SessionStatus(
-            session_id=session_id,
-            status="completed",
-            message="変換が完了しました",
-            progress=100,
-            pdf_num=pdf_num,
-            image_num=image_num,
-            created_at=datetime.now()
-        )
-        
-        session_status_manager.update_status(session_id, status)
-        
-        if settings.gcp_region != "local" and gcs_client is not None:
-            try:
-                logger.info(f"Uploading ZIP to GCS_BUCKET_WORKS: {settings.gcs_bucket_works}/{session_id}/all_pdfs_images.zip")
-                
-                bucket = gcs_client.bucket(settings.gcs_bucket_works)
-                blob = bucket.blob(f"{session_id}/all_pdfs_images.zip")
-                
-                blob.upload_from_filename(zip_path)
-                logger.info(f"Successfully uploaded ZIP to GCS: {settings.gcs_bucket_works}/{session_id}/all_pdfs_images.zip")
-            except Exception as e:
-                error_msg = f"Failed to upload ZIP to GCS: {str(e)}"
-                logger.error(error_msg)
-        
-        logger.info(f"ZIP file created: {zip_path}")
-        return zip_path
-        
-    except Exception as e:
-        error_msg = f"Error creating ZIP file: {str(e)}"
-        logger.error(error_msg)
-        session_status_manager.update_status(
-            session_id, 
-            SessionStatus(
-                session_id=session_id,
-                status="error",
-                message=f"ZIP作成エラー: {error_msg}",
-                progress=0,
-                pdf_num=0,
-                image_num=0,
-                created_at=datetime.now()
-            )
-        )
-        return ""
+# ZIPファイルの作成機能は不要になったため、コメントアウト
+# def create_zip_file(session_id: str, image_paths: List[str]) -> str:
+#     """
+#     画像ファイルをZIPにまとめる
+#     
+#     Args:
+#         session_id: セッションID
+#         image_paths: 画像ファイルのパスのリスト
+#         
+#     Returns:
+#         str: 作成されたZIPファイルのパス
+#     """
+#     try:
+#         logger.info(f"Creating ZIP file for session: {session_id} with {len(image_paths)} images")
+#         
+#         # 最初の画像ファイル名からベース名を取得
+#         if not image_paths:
+#             error_msg = "No images to create ZIP file"
+#             logger.error(error_msg)
+#             session_status_manager.update_status(
+#                 session_id, 
+#                 SessionStatus(
+#                     session_id=session_id,
+#                     status="error",
+#                     message=error_msg,
+#                     progress=0,
+#                     pdf_num=0,
+#                     image_num=0,
+#                     created_at=datetime.now()
+#                 )
+#             )
+#             return ""
+#             
+#         base_name = os.path.splitext(os.path.basename(image_paths[0]))[0].split('_page')[0]
+#         zip_filename = "all_pdfs_images.zip"
+#         zip_path = os.path.join(settings.get_session_dirpath(session_id), zip_filename)
+#         
+#         logger.info(f"Creating ZIP file at: {zip_path}")
+#         with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+#             for image_path in image_paths:
+#                 # ファイル名のみを取得（ディレクトリパスを除外）
+#                 arcname = os.path.basename(image_path)
+#                 logger.info(f"Adding file to ZIP: {arcname}")
+#                 # UTF-8でファイル名を保存
+#                 zipf.write(image_path, arcname)
+#         
+#         current_status = session_status_manager.get_status(session_id)
+#         
+#         # current_statusがNoneの場合のデフォルト値を設定
+#         pdf_num = 0
+#         image_num = 0
+#         if current_status:
+#             pdf_num = current_status.pdf_num if hasattr(current_status, 'pdf_num') else 0
+#             image_num = current_status.image_num if hasattr(current_status, 'image_num') else 0
+#         
+#         status = SessionStatus(
+#             session_id=session_id,
+#             status="completed",
+#             message="変換が完了しました",
+#             progress=100,
+#             pdf_num=pdf_num,
+#             image_num=image_num,
+#             created_at=datetime.now()
+#         )
+#         
+#         session_status_manager.update_status(session_id, status)
+#         
+#         if settings.gcp_region != "local" and gcs_client is not None:
+#             try:
+#                 logger.info(f"Uploading ZIP to GCS_BUCKET_WORKS: {settings.gcs_bucket_works}/{session_id}/all_pdfs_images.zip")
+#                 
+#                 bucket = gcs_client.bucket(settings.gcs_bucket_works)
+#                 blob = bucket.blob(f"{session_id}/all_pdfs_images.zip")
+#                 
+#                 blob.upload_from_filename(zip_path)
+#                 logger.info(f"Successfully uploaded ZIP to GCS: {settings.gcs_bucket_works}/{session_id}/all_pdfs_images.zip")
+#             except Exception as e:
+#                 error_msg = f"Failed to upload ZIP to GCS: {str(e)}"
+#                 logger.error(error_msg)
+#         
+#         logger.info(f"ZIP file created: {zip_path}")
+#         return zip_path
+#         
+#     except Exception as e:
+#         error_msg = f"Error creating ZIP file: {str(e)}"
+#         logger.error(error_msg)
+#         session_status_manager.update_status(
+#             session_id, 
+#             SessionStatus(
+#                 session_id=session_id,
+#                 status="error",
+#                 message=f"ZIP作成エラー: {error_msg}",
+#                 progress=0,
+#                 pdf_num=0,
+#                 image_num=0,
+#                 created_at=datetime.now()
+#             )
+#         )
+#         return ""

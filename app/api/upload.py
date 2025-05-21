@@ -11,7 +11,7 @@ from fastapi import BackgroundTasks
 from urllib.parse import unquote
 from app.core.job_status import job_status_manager
 from app.core.session_status import session_status_manager
-from app.services.converter import convert_pdfs_to_images, create_zip_file
+from app.services.converter import convert_pdfs_to_images
 import logging
 from typing import Optional, List
 import uuid
@@ -308,150 +308,152 @@ async def local_upload(
             detail=f"ファイルのアップロード中にエラーが発生しました: {str(e)}"
         )
     
-@router.post("/create-zip/{session_id}")
-async def create_zip(session_id: str):
-    try:
-        # HACK: 画像ディレクトリがセッション配下images固定状態。できればconvert_pdfs_to_imagesの戻り値を受け取りたい
-        session_dirpath = settings.get_session_dirpath(session_id)
-        images_dirpath = os.path.join(session_dirpath, "images")
-        logger.info(f"Creating ZIP for session: {session_id}, looking for images in: {images_dirpath}")
-        
-        if not os.path.exists(images_dirpath):
-            error_msg = f"画像ディレクトリがありません: {images_dirpath}"
-            logger.error(error_msg)
-            
-            session_status_manager.update_status(
-                session_id, 
-                SessionStatus(
-                    session_id=session_id,
-                    status="error",
-                    message=error_msg,
-                    progress=0,
-                    pdf_num=0,
-                    image_num=0,
-                    created_at=datetime.now()
-                )
-            )
-            
-            raise HTTPException(status_code=404, detail="Image directory not found")
-        
-        # 画像ファイルの完全なパスを取得
-        image_files = [f for f in os.listdir(images_dirpath) if f.lower().endswith(('.jpg', '.jpeg', '.png', '.gif'))]
-        logger.info(f"Found {len(image_files)} image files in {images_dirpath}")
-        
-        if not image_files:
-            error_msg = f"画像ファイルがありません: {images_dirpath}"
-            logger.error(error_msg)
-            
-            session_status_manager.update_status(
-                session_id, 
-                SessionStatus(
-                    session_id=session_id,
-                    status="error",
-                    message=error_msg,
-                    progress=0,
-                    pdf_num=0,
-                    image_num=0,
-                    created_at=datetime.now()
-                )
-            )
-            
-            raise HTTPException(status_code=404, detail="No image files found")
-        
-        image_paths = [os.path.join(images_dirpath, f) for f in image_files]
-        logger.info(f"Creating ZIP file with {len(image_paths)} images")
-        
-        session_status_manager.update_status(
-            session_id, 
-            SessionStatus(
-                session_id=session_id,
-                status="zipping",
-                message="ZIP作成中...",
-                progress=50,
-                pdf_num=0,
-                image_num=len(image_paths),
-                created_at=datetime.now()
-            )
-        )
-        
-        zip_path = create_zip_file(session_id, image_paths)
-        
-        if not zip_path:
-            error_msg = "ZIP作成に失敗しました"
-            logger.error(error_msg)
-            raise HTTPException(status_code=500, detail="Failed to create ZIP file")
-            
-        logger.info(f"ZIP file created successfully: {zip_path}")
-        return {"message": "ZIP file created successfully", "zip_path": zip_path}
-        
-    except Exception as e:
-        error_msg = f"ZIP作成エラー: {str(e)}"
-        logger.error(error_msg)
-        logger.error(traceback.format_exc())  # スタックトレースを出力
-        
-        session_status_manager.update_status(
-            session_id, 
-            SessionStatus(
-                session_id=session_id,
-                status="error",
-                message=f"ZIP作成中にエラーが発生しました: {str(e)}",
-                progress=0,
-                pdf_num=0,
-                image_num=0,
-                created_at=datetime.now()
-            )
-        )
-        
-        raise HTTPException(status_code=500, detail=str(e))
+# @router.post("/create-zip/{session_id}")
+# async def create_zip(session_id: str):
+#     try:
+#         # HACK: 画像ディレクトリがセッション配下images固定状態。できればconvert_pdfs_to_imagesの戻り値を受け取りたい
+#         session_dirpath = settings.get_session_dirpath(session_id)
+#         images_dirpath = os.path.join(session_dirpath, "images")
+#         logger.info(f"Creating ZIP for session: {session_id}, looking for images in: {images_dirpath}")
+#         
+#         if not os.path.exists(images_dirpath):
+#             error_msg = f"画像ディレクトリがありません: {images_dirpath}"
+#             logger.error(error_msg)
+#             
+#             session_status_manager.update_status(
+#                 session_id, 
+#                 SessionStatus(
+#                     session_id=session_id,
+#                     status="error",
+#                     message=error_msg,
+#                     progress=0,
+#                     pdf_num=0,
+#                     image_num=0,
+#                     created_at=datetime.now()
+#                 )
+#             )
+#             
+#             raise HTTPException(status_code=404, detail="Image directory not found")
+#         
+#         # 画像ファイルの完全なパスを取得
+#         image_files = [f for f in os.listdir(images_dirpath) if f.lower().endswith(('.jpg', '.jpeg', '.png', '.gif'))]
+#         logger.info(f"Found {len(image_files)} image files in {images_dirpath}")
+#         
+#         if not image_files:
+#             error_msg = f"画像ファイルがありません: {images_dirpath}"
+#             logger.error(error_msg)
+#             
+#             session_status_manager.update_status(
+#                 session_id, 
+#                 SessionStatus(
+#                     session_id=session_id,
+#                     status="error",
+#                     message=error_msg,
+#                     progress=0,
+#                     pdf_num=0,
+#                     image_num=0,
+#                     created_at=datetime.now()
+#                 )
+#             )
+#             
+#             raise HTTPException(status_code=404, detail="No image files found")
+#         
+#         image_paths = [os.path.join(images_dirpath, f) for f in image_files]
+#         logger.info(f"Creating ZIP file with {len(image_paths)} images")
+#         
+#         session_status_manager.update_status(
+#             session_id, 
+#             SessionStatus(
+#                 session_id=session_id,
+#                 status="zipping",
+#                 message="ZIP作成中...",
+#                 progress=50,
+#                 pdf_num=0,
+#                 image_num=len(image_paths),
+#                 created_at=datetime.now()
+#             )
+#         )
+#         
+#         # create_zip_file関数はコメントアウトされているため、この行も実行されない
+#         # zip_path = create_zip_file(session_id, image_paths)
+#         
+#         if not zip_path:
+#             error_msg = "ZIP作成に失敗しました"
+#             logger.error(error_msg)
+#             raise HTTPException(status_code=500, detail="Failed to create ZIP file")
+#             
+#         logger.info(f"ZIP file created successfully: {zip_path}")
+#         return {"message": "ZIP file created successfully", "zip_path": zip_path}
+#         
+#     except Exception as e:
+#         error_msg = f"ZIP作成エラー: {str(e)}"
+#         logger.error(error_msg)
+#         logger.error(traceback.format_exc())  # スタックトレースを出力
+#         
+#         session_status_manager.update_status(
+#             session_id, 
+#             SessionStatus(
+#                 session_id=session_id,
+#                 status="error",
+#                 message=f"ZIP作成中にエラーが発生しました: {str(e)}",
+#                 progress=0,
+#                 pdf_num=0,
+#                 image_num=0,
+#                 created_at=datetime.now()
+#             )
+#         )
+#         
+#         raise HTTPException(status_code=500, detail=str(e))
 
-@local_router.get("/local-download/{session_id}/{filename}")
-async def local_download(session_id: str, filename: str):
-    """ローカル環境でのファイルダウンロード用エンドポイント"""
-    try:
-        file_path = os.path.join(settings.get_session_dirpath(session_id), filename)
-        logger.info(f"ダウンロード要求: {file_path}")
-        
-        if not os.path.exists(file_path):
-            logger.error(f"ファイルが見つかりません: {file_path}")
-            raise HTTPException(status_code=404, detail="File not found")
-        
-        return FileResponse(
-            file_path,
-            filename=filename,
-            media_type="application/zip"
-        )
-    except Exception as e:
-        logger.error(f"ダウンロードエラー: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+# @local_router.get("/local-download/{session_id}/{filename}")
+# async def local_download(session_id: str, filename: str):
+#     """ローカル環境でのファイルダウンロード用エンドポイント"""
+#     try:
+#         file_path = os.path.join(settings.get_session_dirpath(session_id), filename)
+#         logger.info(f"ダウンロード要求: {file_path}")
+#         
+#         if not os.path.exists(file_path):
+#             logger.error(f"ファイルが見つかりません: {file_path}")
+#             raise HTTPException(status_code=404, detail="File not found")
+#         
+#         return FileResponse(
+#             file_path,
+#             filename=filename,
+#             media_type="application/zip"
+#         )
+#     except Exception as e:
+#         logger.error(f"ダウンロードエラー: {str(e)}")
+#         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/download/{session_id}", response_model=DownloadResponse)
-async def get_download_url(session_id: str):
-    """ダウンロード用のURLを取得"""
-    try:
-        status = session_status_manager.get_status(session_id)
-        
-        # # ジョブが完了していない場合はエラー
-        # if status.status != "completed":
-        #     raise HTTPException(status_code=400, detail="Job not completed yet")
-        
-        # ZIPファイル名を取得
-        session_dirpath = settings.get_session_dirpath(session_id)
-        # _images.zipで終わるファイルまたはall_pdfs_images.zipを検索
-        zip_files = [f for f in os.listdir(session_dirpath) if f.endswith("_images.zip") or f == "all_pdfs_images.zip"]
-        if not zip_files:
-            raise HTTPException(status_code=404, detail="ZIP file not found")
-        
-        # ダウンロードURLを生成
-        download_url = generate_download_url(session_id)
-        expires_at = datetime.now() + timedelta(seconds=settings.sign_url_exp)
-        
-        return DownloadResponse(
-            download_url=download_url,
-            expires_at=expires_at
-        )
-    except Exception as e:
-        logger.error(f"ダウンロードURL生成エラー: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+# ダウンロードURL取得機能は不要になったため、コメントアウト
+# @router.get("/download/{session_id}", response_model=DownloadResponse)
+# async def get_download_url(session_id: str):
+#     """ダウンロード用のURLを取得"""
+#     try:
+#         status = session_status_manager.get_status(session_id)
+#         
+#         # # ジョブが完了していない場合はエラー
+#         # if status.status != "completed":
+#         #     raise HTTPException(status_code=400, detail="Job not completed yet")
+#         
+#         # ZIPファイル名を取得
+#         session_dirpath = settings.get_session_dirpath(session_id)
+#         # _images.zipで終わるファイルまたはall_pdfs_images.zipを検索
+#         zip_files = [f for f in os.listdir(session_dirpath) if f.endswith("_images.zip") or f == "all_pdfs_images.zip"]
+#         if not zip_files:
+#             raise HTTPException(status_code=404, detail="ZIP file not found")
+#         
+#         # ダウンロードURLを生成
+#         download_url = generate_download_url(session_id)
+#         expires_at = datetime.now() + timedelta(seconds=settings.sign_url_exp)
+#         
+#         return DownloadResponse(
+#             download_url=download_url,
+#             expires_at=expires_at
+#         )
+#     except Exception as e:
+#         logger.error(f"ダウンロードURL生成エラー: {str(e)}")
+#         raise HTTPException(status_code=500, detail=str(e))
 
 @router.put("/session-update/{session_id}")
 async def update_session_status(session_id: str, status_update: dict):
@@ -476,4 +478,4 @@ async def update_session_status(session_id: str, status_update: dict):
         return {"message": "Session status updated successfully"}
     except Exception as e:
         logger.error(f"セッションステータス更新エラー: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))                                                                                                                        
+        raise HTTPException(status_code=500, detail=str(e))                                                                                                                                                

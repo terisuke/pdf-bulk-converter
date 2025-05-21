@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, UploadFile, File
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
-from app.models.schemas import UploadRequest, SessionRequest, SessionResponse, UploadResponse, SessionStatus, JobStatus, DownloadResponse
+from app.models.schemas import UploadRequest, SessionRequest, SessionResponse, UploadResponse, SessionStatus, JobStatus, DownloadResponse, NotifyUploadCompleteRequest
 from app.services.storage import generate_session_url, generate_upload_url, generate_download_url
 import os
 from app.core.config import get_settings
@@ -27,7 +27,109 @@ settings = get_settings()
 # 複数のファイルを処理するための辞書
 pending_files = {}
 
-async def convert_and_notify(session_id: str, job_id: str, pdf_paths: List[str], dpi: int, format: str = "jpg"):
+async def convert_and_notify(session_id: str, job_ids: List[str], dpi: int = 300, format: str = "jpeg", max_retries: int = 3):
+    """
+    PDFファイルを変換し、進捗状況を通知する
+    
+    Args:
+        session_id: セッションID
+        job_ids: ジョブIDのリスト（各ファイルに対応）
+        dpi: 出力画像のDPI
+        format: 出力画像のフォーマット
+        max_retries: リトライ回数の最大値
+    """
+    try:
+        logger.info(f"Starting PDF conversion for session: {session_id}, job_ids: {job_ids}")
+        
+        local_pdf_paths = []
+        
+        if settings.gcp_region != "local" and 'storage' in globals() and storage is not None:
+            for job_id in job_ids:
+                retry_count = 0
+                success = False
+                
+                while not success and retry_count <= max_retries:
+                    try:
+                        bucket = storage.Client().bucket(settings.gcs_bucket_works)
+                        blobs = list(bucket.list_blobs(prefix=f"{session_id}/{job_id}/"))
+                        
+                        if not blobs:
+                            logger.warning(f"No files found in GCS at {session_id}/{job_id}/")
+                            retry_count += 1
+                            if retry_count <= max_retries:
+                                logger.info(f"Retrying ({retry_count}/{max_retries})...")
+                                await asyncio.sleep(2 ** retry_count)  # 指数バックオフ
+                                continue
+                            else:
+                                logger.error(f"Max retries reached for {job_id}, skipping")
+                                break
+                        
+                        for blob in blobs:
+                            filename = blob.name.split("/")[-1]
+                            local_dir = os.path.join(settings.get_session_dirpath(session_id), "pdfs")
+                            os.makedirs(local_dir, exist_ok=True)
+                            local_path = os.path.join(local_dir, filename)
+                            
+                            logger.info(f"Downloading {blob.name} from GCS to {local_path}")
+                            blob.download_to_filename(local_path)
+                            local_pdf_paths.append(local_path)
+                        
+                        success = True
+                        
+                    except Exception as e:
+                        logger.error(f"Error downloading file from GCS: {str(e)}")
+                        retry_count += 1
+                        if retry_count <= max_retries:
+                            logger.info(f"Retrying ({retry_count}/{max_retries})...")
+                            await asyncio.sleep(2 ** retry_count)  # 指数バックオフ
+                        else:
+                            logger.error(f"Max retries reached for {job_id}, skipping")
+        else:
+            local_dir = os.path.join(settings.get_session_dirpath(session_id), "pdfs")
+            for job_id in job_ids:
+                for filename in os.listdir(local_dir):
+                    local_path = os.path.join(local_dir, filename)
+                    if os.path.isfile(local_path):
+                        local_pdf_paths.append(local_path)
+        
+        if not local_pdf_paths:
+            error_message = "変換するPDFファイルが見つかりませんでした"
+            logger.error(error_message)
+            session_status_manager.update_status(
+                session_id,
+                SessionStatus(
+                    session_id=session_id,
+                    status="error",
+                    message=error_message,
+                    progress=0,
+                    pdf_num=0,
+                    image_num=0,
+                    created_at=datetime.now()
+                )
+            )
+            return
+        
+        conversion_job_id = str(uuid.uuid4())
+        await convert_pdfs_to_images(session_id, conversion_job_id, local_pdf_paths, dpi)
+        
+        logger.info(f"PDF conversion completed for session: {session_id}")
+    except Exception as e:
+        error_message = f"PDF変換中にエラーが発生しました: {str(e)}"
+        logger.error(error_message)
+        session_status_manager.update_status(
+            session_id,
+            SessionStatus(
+                session_id=session_id,
+                status="error",
+                message=error_message,
+                progress=0,
+                pdf_num=0,
+                image_num=0,
+                created_at=datetime.now()
+            )
+        )
+
+async def convert_and_notify_single(session_id: str, job_id: str, pdf_paths: List[str], dpi: int, format: str = "jpg"):
     """PDFを変換し、進捗を通知するバックグラウンドタスク（エラーハンドリング付き）"""
     try:
         logger.info(f"Starting background task to convert PDFs for session_id: {session_id}, job_id: {job_id}")
@@ -260,7 +362,7 @@ async def local_upload(
                 
                 if pdf_files:
                     background_tasks.add_task(
-                        convert_and_notify,
+                        convert_and_notify_single,
                         session_id=session_id,
                         job_id=job_id,
                         pdf_paths=pdf_files,
@@ -425,6 +527,50 @@ async def local_upload(
 #         logger.error(f"ダウンロードエラー: {str(e)}")
 #         raise HTTPException(status_code=500, detail=str(e))
 
+@router.post("/notify-upload-complete/{session_id}")
+async def notify_upload_complete(
+    session_id: str,
+    background_tasks: BackgroundTasks,
+    request: NotifyUploadCompleteRequest
+):
+    """
+    クラウドモードでのファイルアップロード完了を通知し、変換処理を開始するエンドポイント
+    
+    Args:
+        session_id: セッションID
+        request: アップロード完了通知リクエスト（ジョブIDのリスト、DPI設定など）
+    """
+    try:
+        logger.info(f"Upload complete notification received for session: {session_id}")
+        
+        session_status_manager.update_status(
+            session_id,
+            SessionStatus(
+                session_id=session_id,
+                status="processing",
+                message="PDFファイルの変換を開始します",
+                progress=20.0,
+                pdf_num=len(request.job_ids),
+                image_num=0,
+                created_at=datetime.now()
+            )
+        )
+        
+        background_tasks.add_task(
+            convert_and_notify,
+            session_id=session_id,
+            job_ids=request.job_ids,
+            dpi=request.dpi,
+            format=request.format,
+            max_retries=request.max_retries
+        )
+        
+        return {"status": "processing", "message": "PDFファイルの変換を開始します"}
+    except Exception as e:
+        error_message = f"アップロード完了通知の処理中にエラーが発生しました: {str(e)}"
+        logger.error(error_message)
+        raise HTTPException(status_code=500, detail=error_message)
+
 # ダウンロードURL取得機能は不要になったため、コメントアウト
 # @router.get("/download/{session_id}", response_model=DownloadResponse)
 # async def get_download_url(session_id: str):
@@ -478,4 +624,4 @@ async def update_session_status(session_id: str, status_update: dict):
         return {"message": "Session status updated successfully"}
     except Exception as e:
         logger.error(f"セッションステータス更新エラー: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))                                                                                                                                                
+        raise HTTPException(status_code=500, detail=str(e))                                                                                                                                                                        

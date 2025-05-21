@@ -101,13 +101,13 @@ async def convert_1pdf_to_images(session_id: str, job_id: str, pdf_path: str, dp
             
             if settings.gcp_region != "local" and gcs_client is not None:
                 try:
-                    logger.info(f"Uploading image to GCS_BUCKET_IMAGE: {settings.gcs_bucket_image}/{session_id}/{image_filename}")
+                    logger.info(f"Uploading image to GCS_BUCKET_IMAGE: {settings.gcs_bucket_image}/{image_filename}")
                     
                     bucket = gcs_client.bucket(settings.gcs_bucket_image)
-                    blob = bucket.blob(f"{session_id}/{image_filename}")
+                    blob = bucket.blob(f"{image_filename}")  # セッションIDとジョブIDを含めない
                     
                     blob.upload_from_filename(image_path)
-                    logger.info(f"Successfully uploaded image to GCS: {settings.gcs_bucket_image}/{session_id}/{image_filename}")
+                    logger.info(f"Successfully uploaded image to GCS: {settings.gcs_bucket_image}/{image_filename}")
                 except Exception as e:
                     error_msg = f"Failed to upload image to GCS: {str(e)}"
                     logger.error(error_msg)

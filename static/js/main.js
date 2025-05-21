@@ -101,7 +101,35 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            // アップロード完了後、変換処理の完了を待つだけ（変換完了はSSEで通知される）
+            // アップロード完了をバックエンドに通知
+            const jobIds = [];
+            for (let i = 0; i < files.length; i++) {
+                if (i === 0) {
+                    jobIds.push(currentJobId);
+                } else {
+                    jobIds.push(currentJobId);
+                }
+            }
+            
+            const notifyResponse = await fetch(`/api/notify-upload-complete/${currentSessionId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    session_id: currentSessionId,
+                    job_ids: jobIds,
+                    dpi: parseInt(dpi),
+                    format: "jpeg",
+                    max_retries: 3
+                })
+            });
+            
+            if (!notifyResponse.ok) {
+                throw new Error('アップロード完了通知に失敗しました');
+            }
+
+            // アップロード完了後、変換処理の完了を待つ（変換完了はSSEで通知される）
             progressText.textContent = 'PDFファイルをアップロードしました。変換処理が完了するまでお待ちください...';
             
         } catch (error) {
@@ -128,4 +156,4 @@ document.addEventListener('DOMContentLoaded', () => {
             alert('エラーが発生しました: ' + message);
         }
     }
-});                                        
+});                                                                                

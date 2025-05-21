@@ -15,6 +15,7 @@ from app.services.converter import convert_pdfs_to_images, create_zip_file
 import logging
 from typing import Optional, List
 import uuid
+import traceback
 
 # ロガーの設定
 logger = logging.getLogger(__name__)
@@ -25,6 +26,73 @@ settings = get_settings()
 
 # 複数のファイルを処理するための辞書
 pending_files = {}
+
+async def convert_and_notify(session_id: str, job_id: str, pdf_paths: List[str], dpi: int, format: str = "jpg"):
+    """PDFを変換し、進捗を通知するバックグラウンドタスク（エラーハンドリング付き）"""
+    try:
+        logger.info(f"Starting background task to convert PDFs for session_id: {session_id}, job_id: {job_id}")
+        job_status_manager.update_status(
+            job_id, 
+            JobStatus(
+                session_id=session_id,
+                job_id=job_id,
+                status="processing",
+                message="PDF変換処理を開始します",
+                progress=0,
+                created_at=datetime.now()
+            )
+        )
+        
+        logger.info(f"Converting {len(pdf_paths)} PDFs to images with dpi={dpi}, format={format}")
+        await convert_pdfs_to_images(
+            session_id=session_id,
+            job_id=job_id,
+            pdf_paths=pdf_paths,
+            dpi=dpi,
+            format=format
+        )
+        
+        logger.info(f"PDF conversion completed for job_id: {job_id}")
+        job_status_manager.update_status(
+            job_id, 
+            JobStatus(
+                session_id=session_id,
+                job_id=job_id,
+                status="completed",
+                message="PDF変換が完了しました",
+                progress=100,
+                created_at=datetime.now()
+            )
+        )
+    except Exception as e:
+        error_msg = f"Error in PDF conversion background task: {str(e)}"
+        logger.error(error_msg)
+        logger.error(traceback.format_exc())  # スタックトレースを出力
+        
+        job_status_manager.update_status(
+            job_id, 
+            JobStatus(
+                session_id=session_id,
+                job_id=job_id,
+                status="error",
+                message=f"PDF変換中にエラーが発生しました: {str(e)}",
+                progress=0,
+                created_at=datetime.now()
+            )
+        )
+        
+        session_status_manager.update_status(
+            session_id, 
+            SessionStatus(
+                session_id=session_id,
+                status="error",
+                message=f"PDF変換中にエラーが発生しました: {str(e)}",
+                progress=0,
+                pdf_num=0,
+                image_num=0,
+                created_at=datetime.now()
+            )
+        )
 
 @router.post("/session", response_model=SessionResponse)
 def get_session_id(request: SessionRequest):
@@ -192,11 +260,12 @@ async def local_upload(
                 
                 if pdf_files:
                     background_tasks.add_task(
-                        convert_pdfs_to_images,
+                        convert_and_notify,
                         session_id=session_id,
                         job_id=job_id,
                         pdf_paths=pdf_files,
-                        dpi=pending_files[job_id][0].get('dpi', 300)
+                        dpi=pending_files[job_id][0].get('dpi', 300),
+                        format=pending_files[job_id][0].get('format', 'jpg')
                     )
 
                 # TODO: 個数に依らずzip自体を一旦保留
@@ -245,16 +314,94 @@ async def create_zip(session_id: str):
         # HACK: 画像ディレクトリがセッション配下images固定状態。できればconvert_pdfs_to_imagesの戻り値を受け取りたい
         session_dirpath = settings.get_session_dirpath(session_id)
         images_dirpath = os.path.join(session_dirpath, "images")
+        logger.info(f"Creating ZIP for session: {session_id}, looking for images in: {images_dirpath}")
+        
         if not os.path.exists(images_dirpath):
-            logger.error(f"画像ディレクトリがありません: {images_dirpath}")
-            raise HTTPException(status_code=404, detail="File not found")
+            error_msg = f"画像ディレクトリがありません: {images_dirpath}"
+            logger.error(error_msg)
+            
+            session_status_manager.update_status(
+                session_id, 
+                SessionStatus(
+                    session_id=session_id,
+                    status="error",
+                    message=error_msg,
+                    progress=0,
+                    pdf_num=0,
+                    image_num=0,
+                    created_at=datetime.now()
+                )
+            )
+            
+            raise HTTPException(status_code=404, detail="Image directory not found")
         
         # 画像ファイルの完全なパスを取得
-        image_paths = [os.path.join(images_dirpath, f) for f in os.listdir(images_dirpath)]
-        create_zip_file(session_id, image_paths)
+        image_files = [f for f in os.listdir(images_dirpath) if f.lower().endswith(('.jpg', '.jpeg', '.png', '.gif'))]
+        logger.info(f"Found {len(image_files)} image files in {images_dirpath}")
+        
+        if not image_files:
+            error_msg = f"画像ファイルがありません: {images_dirpath}"
+            logger.error(error_msg)
+            
+            session_status_manager.update_status(
+                session_id, 
+                SessionStatus(
+                    session_id=session_id,
+                    status="error",
+                    message=error_msg,
+                    progress=0,
+                    pdf_num=0,
+                    image_num=0,
+                    created_at=datetime.now()
+                )
+            )
+            
+            raise HTTPException(status_code=404, detail="No image files found")
+        
+        image_paths = [os.path.join(images_dirpath, f) for f in image_files]
+        logger.info(f"Creating ZIP file with {len(image_paths)} images")
+        
+        session_status_manager.update_status(
+            session_id, 
+            SessionStatus(
+                session_id=session_id,
+                status="zipping",
+                message="ZIP作成中...",
+                progress=50,
+                pdf_num=0,
+                image_num=len(image_paths),
+                created_at=datetime.now()
+            )
+        )
+        
+        zip_path = create_zip_file(session_id, image_paths)
+        
+        if not zip_path:
+            error_msg = "ZIP作成に失敗しました"
+            logger.error(error_msg)
+            raise HTTPException(status_code=500, detail="Failed to create ZIP file")
+            
+        logger.info(f"ZIP file created successfully: {zip_path}")
+        return {"message": "ZIP file created successfully", "zip_path": zip_path}
         
     except Exception as e:
-        logger.error(f"ZIP作成エラー: {str(e)}")
+        error_msg = f"ZIP作成エラー: {str(e)}"
+        logger.error(error_msg)
+        logger.error(traceback.format_exc())  # スタックトレースを出力
+        
+        session_status_manager.update_status(
+            session_id, 
+            SessionStatus(
+                session_id=session_id,
+                status="error",
+                message=f"ZIP作成中にエラーが発生しました: {str(e)}",
+                progress=0,
+                pdf_num=0,
+                image_num=0,
+                created_at=datetime.now()
+            )
+        )
+        
         raise HTTPException(status_code=500, detail=str(e))
 
 @local_router.get("/local-download/{session_id}/{filename}")
@@ -329,4 +476,4 @@ async def update_session_status(session_id: str, status_update: dict):
         return {"message": "Session status updated successfully"}
     except Exception as e:
         logger.error(f"セッションステータス更新エラー: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))            
+        raise HTTPException(status_code=500, detail=str(e))                                                                                                                        

@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const downloadLink = document.getElementById('downloadLink');
 
     let currentSessionId = null;
-    let currentJobId = null;
+    let jobIds = []; // Store all job IDs
     let eventSource = null;
 
     uploadForm.addEventListener('submit', async (e) => {
@@ -82,7 +82,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 const urlData = await res_upload_job.json();
                 uploadUrl = urlData.upload_url;
-                if (i == 0) {currentJobId = urlData.job_id}
+                jobIds.push(urlData.job_id); // Store each job ID
 
                 // ファイルをアップロード
                 const fullUrl = uploadUrl.startsWith('/') ? 
@@ -102,14 +102,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // アップロード完了をバックエンドに通知
-            const jobIds = [];
-            for (let i = 0; i < files.length; i++) {
-                if (i === 0) {
-                    jobIds.push(currentJobId);
-                } else {
-                    jobIds.push(currentJobId);
-                }
-            }
             
             const notifyResponse = await fetch(`/api/notify-upload-complete/${currentSessionId}`, {
                 method: 'POST',
@@ -156,4 +148,4 @@ document.addEventListener('DOMContentLoaded', () => {
             alert('エラーが発生しました: ' + message);
         }
     }
-});                                                                                
+});                                                                                                                        

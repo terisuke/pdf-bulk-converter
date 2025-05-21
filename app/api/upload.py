@@ -55,11 +55,28 @@ async def convert_and_notify(session_id: str, job_ids: List[str], dpi: int = 300
                 
                 while not success and retry_count <= max_retries:
                     try:
-                        bucket = storage.Client().bucket(settings.gcs_bucket_works)
-                        blobs = list(bucket.list_blobs(prefix=f"{session_id}/{job_id}/"))
+                        try:
+                            with open(settings.gcp_keypath, "r") as f:
+                                credentials_info = json.load(f)
+                            client = storage.Client.from_service_account_info(credentials_info)
+                            logger.info(f"GCS client initialized for project: {client.project}")
+                            
+                            bucket = client.bucket(settings.gcs_bucket_works)
+                            blobs = list(bucket.list_blobs(prefix=f"{session_id}/{job_id}/"))
+                        except FileNotFoundError as exc:
+                            logger.error(f"GCP key file not found: {settings.gcp_keypath}")
+                            raise FileNotFoundError(f"GCP key file not found: {settings.gcp_keypath}") from exc
+                        except Exception as e:
+                            logger.error(f"Failed to initialize GCS client: {str(e)}")
+                            raise RuntimeError(f"Failed to initialize GCS client: {str(e)}")
                         
                         if not blobs:
                             logger.warning(f"No files found in GCS at {session_id}/{job_id}/")
+                            all_blobs = list(bucket.list_blobs())
+                            logger.info(f"Total blobs in bucket: {len(all_blobs)}")
+                            for b in all_blobs[:10]:  # Show first 10 blobs
+                                logger.info(f"Found blob: {b.name}")
+                                
                             retry_count += 1
                             if retry_count <= max_retries:
                                 logger.info(f"Retrying ({retry_count}/{max_retries})...")
@@ -629,4 +646,4 @@ async def update_session_status(session_id: str, status_update: dict):
         return {"message": "Session status updated successfully"}
     except Exception as e:
         logger.error(f"セッションステータス更新エラー: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))                                                                                                                                                                                                
+        raise HTTPException(status_code=500, detail=str(e))                                                                                                                                                                                                                                                

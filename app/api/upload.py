@@ -17,10 +17,14 @@ from typing import Optional, List
 import uuid
 import traceback
 
-try:  # google-cloud-storage is optional in local mode
-    from google.cloud import storage
+# google-cloud-storage is optional in local mode
+gcs_client = None
+gcs_available = False
+try:
+    import google.cloud.storage
+    gcs_available = True
 except ImportError:  # pragma: no cover - optional dependency
-    storage = None
+    pass
 
 # ロガーの設定
 logger = logging.getLogger(__name__)
@@ -48,71 +52,88 @@ async def convert_and_notify(session_id: str, job_ids: List[str], dpi: int = 300
         
         local_pdf_paths = []
         
-        if settings.gcp_region != "local" and storage is not None:
-            for job_id in job_ids:
-                retry_count = 0
-                success = False
+        # Check if we're in cloud mode or local mode
+        logger.info(f"Current GCP region: {settings.gcp_region}")
+        
+        if settings.gcp_region != "local":
+            logger.info("Running in cloud mode, attempting to download files from GCS")
+            if not gcs_available:
+                logger.warning("Google Cloud Storage module is not available, cannot access GCS")
+            else:
                 
-                while not success and retry_count <= max_retries:
-                    try:
+                for job_id in job_ids:
+                    retry_count = 0
+                    success = False
+                    
+                    while not success and retry_count <= max_retries:
                         try:
                             with open(settings.gcp_keypath, "r") as f:
                                 credentials_info = json.load(f)
-                            client = storage.Client.from_service_account_info(credentials_info)
+                            if not gcs_available:
+                                logger.error("Google Cloud Storage module is not available, cannot initialize client")
+                                raise RuntimeError("Google Cloud Storage module is not available, cannot initialize client")
+                                
+                            client = google.cloud.storage.Client.from_service_account_info(credentials_info)
                             logger.info(f"GCS client initialized for project: {client.project}")
                             
                             bucket = client.bucket(settings.gcs_bucket_works)
                             blobs = list(bucket.list_blobs(prefix=f"{session_id}/{job_id}/"))
+                            
+                            if not blobs:
+                                logger.warning(f"No files found in GCS at {session_id}/{job_id}/")
+                                all_blobs = list(bucket.list_blobs())
+                                logger.info(f"Total blobs in bucket: {len(all_blobs)}")
+                                for b in all_blobs[:10]:  # Show first 10 blobs
+                                    logger.info(f"Found blob: {b.name}")
+                                    
+                                retry_count += 1
+                                if retry_count <= max_retries:
+                                    logger.info(f"Retrying ({retry_count}/{max_retries})...")
+                                    await asyncio.sleep(2 ** retry_count)  # 指数バックオフ
+                                    continue
+                                else:
+                                    logger.error(f"Max retries reached for {job_id}, skipping")
+                                    break
+                            
+                            for blob in blobs:
+                                filename = blob.name.split("/")[-1]
+                                local_dir = os.path.join(settings.get_session_dirpath(session_id), "pdfs")
+                                os.makedirs(local_dir, exist_ok=True)
+                                local_path = os.path.join(local_dir, filename)
+                                
+                                logger.info(f"Downloading {blob.name} from GCS to {local_path}")
+                                blob.download_to_filename(local_path)
+                                local_pdf_paths.append(local_path)
+                            
+                            success = True
+                            
                         except FileNotFoundError as exc:
                             logger.error(f"GCP key file not found: {settings.gcp_keypath}")
                             raise FileNotFoundError(f"GCP key file not found: {settings.gcp_keypath}") from exc
                         except Exception as e:
-                            logger.error(f"Failed to initialize GCS client: {str(e)}")
-                            raise RuntimeError(f"Failed to initialize GCS client: {str(e)}")
-                        
-                        if not blobs:
-                            logger.warning(f"No files found in GCS at {session_id}/{job_id}/")
-                            all_blobs = list(bucket.list_blobs())
-                            logger.info(f"Total blobs in bucket: {len(all_blobs)}")
-                            for b in all_blobs[:10]:  # Show first 10 blobs
-                                logger.info(f"Found blob: {b.name}")
-                                
+                            logger.error(f"Error downloading file from GCS: {str(e)}")
                             retry_count += 1
                             if retry_count <= max_retries:
                                 logger.info(f"Retrying ({retry_count}/{max_retries})...")
                                 await asyncio.sleep(2 ** retry_count)  # 指数バックオフ
-                                continue
                             else:
                                 logger.error(f"Max retries reached for {job_id}, skipping")
-                                break
-                        
-                        for blob in blobs:
-                            filename = blob.name.split("/")[-1]
-                            local_dir = os.path.join(settings.get_session_dirpath(session_id), "pdfs")
-                            os.makedirs(local_dir, exist_ok=True)
-                            local_path = os.path.join(local_dir, filename)
-                            
-                            logger.info(f"Downloading {blob.name} from GCS to {local_path}")
-                            blob.download_to_filename(local_path)
-                            local_pdf_paths.append(local_path)
-                        
-                        success = True
-                        
-                    except Exception as e:
-                        logger.error(f"Error downloading file from GCS: {str(e)}")
-                        retry_count += 1
-                        if retry_count <= max_retries:
-                            logger.info(f"Retrying ({retry_count}/{max_retries})...")
-                            await asyncio.sleep(2 ** retry_count)  # 指数バックオフ
-                        else:
-                            logger.error(f"Max retries reached for {job_id}, skipping")
         else:
             local_dir = os.path.join(settings.get_session_dirpath(session_id), "pdfs")
-            for job_id in job_ids:
-                for filename in os.listdir(local_dir):
-                    local_path = os.path.join(local_dir, filename)
-                    if os.path.isfile(local_path):
-                        local_pdf_paths.append(local_path)
+            if not os.path.exists(local_dir):
+                logger.info(f"Creating local directory: {local_dir}")
+                os.makedirs(local_dir, exist_ok=True)
+                
+            logger.info(f"Checking for PDF files in local directory: {local_dir}")
+            if os.path.exists(local_dir) and os.listdir(local_dir):
+                for job_id in job_ids:
+                    for filename in os.listdir(local_dir):
+                        local_path = os.path.join(local_dir, filename)
+                        if os.path.isfile(local_path) and filename.lower().endswith('.pdf'):
+                            logger.info(f"Found PDF file: {local_path}")
+                            local_pdf_paths.append(local_path)
+            else:
+                logger.warning(f"Local directory {local_dir} does not exist or is empty")
         
         if not local_pdf_paths:
             error_message = "変換するPDFファイルが見つかりませんでした"
@@ -646,4 +667,4 @@ async def update_session_status(session_id: str, status_update: dict):
         return {"message": "Session status updated successfully"}
     except Exception as e:
         logger.error(f"セッションステータス更新エラー: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))                                                                                                                                                                                                                                                
+        raise HTTPException(status_code=500, detail=str(e))                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                

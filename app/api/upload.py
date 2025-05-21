@@ -17,6 +17,11 @@ from typing import Optional, List
 import uuid
 import traceback
 
+try:  # google-cloud-storage is optional in local mode
+    from google.cloud import storage
+except ImportError:  # pragma: no cover - optional dependency
+    storage = None
+
 # ロガーの設定
 logger = logging.getLogger(__name__)
 
@@ -43,7 +48,7 @@ async def convert_and_notify(session_id: str, job_ids: List[str], dpi: int = 300
         
         local_pdf_paths = []
         
-        if settings.gcp_region != "local" and 'storage' in globals() and storage is not None:
+        if settings.gcp_region != "local" and storage is not None:
             for job_id in job_ids:
                 retry_count = 0
                 success = False
@@ -624,4 +629,4 @@ async def update_session_status(session_id: str, status_update: dict):
         return {"message": "Session status updated successfully"}
     except Exception as e:
         logger.error(f"セッションステータス更新エラー: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))                                                                                                                                                                        
+        raise HTTPException(status_code=500, detail=str(e))                                                                                                                                                                                                

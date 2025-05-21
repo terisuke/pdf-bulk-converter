@@ -25,7 +25,7 @@ if (( major < 3 || (major == 3 && minor < 11) )); then
     echo "正しいPythonバージョンをインストールするためにsetup_with_pyenv.shを使用してみます..."
 
     # Make setup_with_pyenv.sh executable
-    chmod +x setup_with_pyenv.sh
+    chmod +x ./setup_with_pyenv.sh
 
     # Run setup_with_pyenv.sh
     ./setup_with_pyenv.sh
@@ -37,21 +37,21 @@ fi
 echo "Python $python_version はこのプロジェクトと互換性があります。"
 
 # Check if venv directory exists and delete it
-if [ -d "venv" ]; then
+if [ -d "../venv" ]; then
     echo "既存の仮想環境を削除します..."
-    rm -rf venv
+    rm -rf ../venv
 fi
 
 # Create a new virtual environment
 echo "新しい仮想環境を作成します..."
-python3 -m venv venv
+python3 -m venv ../venv
 
 # Activate the virtual environment
 echo "仮想環境をアクティブ化します..."
-source venv/bin/activate
+source ../venv/bin/activate
 
 # Add execute permissions to the requirements-fix.py script
-chmod +x requirements-fix.py
+chmod +x ./requirements-fix.py
 
 # Use our custom requirements-fix.py script to install dependencies
 echo "requirements-fix.py を使用して依存関係をインストールします..."
@@ -67,7 +67,7 @@ else
     else
         echo "エラー: MuPDF専用オプションでも失敗したため、リクワイアメントからインストールを試行します..."
         # Attempt installation with pip install -r requirements.txt
-        if python3 -m pip install -r requirements.txt; then
+        if python3 -m pip install -r ../requirements.txt; then
             echo "依存関係のインストールに成功しました (requirements.txt から)。"
         else
             echo "エラー: 依存関係のインストールに最終的に失敗しました。"
@@ -90,8 +90,8 @@ fi
 # 環境変数ファイルをコピー
 echo ""
 echo "環境変数を設定しています..."
-if [ -f ".env.local" ]; then
-    cp .env.local .env
+if [ -f "../.env.local" ]; then
+    cp ../.env.local ../.env
     echo ".env.localを.envにコピーしました"
 else
     echo "WARNING: .env.localファイルが見つかりません。環境変数を手動で設定する必要があります。"
@@ -102,10 +102,10 @@ echo ""
 echo "セットアップが正常に完了しました！"
 echo ""
 echo "仮想環境をアクティブにするには、以下を実行してください:"
-echo "    source venv/bin/activate"
+echo "    source ../venv/bin/activate"
 echo "    python3 -m pip install --upgrade pip"
 echo ""
 echo "その後、開発サーバーを以下のコマンドで開始してください:"
 echo "    uvicorn app.main:app --reload"
 echo ""
-echo "注意: 仮想環境をアクティブにするには、`source venv/bin/activate`を実行してください。"
+echo "注意: 仮想環境をアクティブにするには、`source ../venv/bin/activate`を実行してください。" 

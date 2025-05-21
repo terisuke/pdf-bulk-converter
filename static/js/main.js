@@ -62,7 +62,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 progressText.textContent = `ファイル ${i + 1}/${files.length} を処理中...`;
                 progressBar.style.width = `${10.0 + 80.0 * (i / files.length)}%`;
 
-                const res_upload_job = await fetch('/api/upload-url/', {
+                const uploadURLEndpoint = new URL('/api/upload-url', window.location.origin);
+                const res_upload_job = await fetch(uploadURLEndpoint.toString(), {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -84,17 +85,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (i == 0) {currentJobId = urlData.job_id}
 
                 // ファイルをアップロード
-                const formData = new FormData();
-                formData.append('file', file);
-                formData.append('dpi', dpi);
-                formData.append('format', 'jpeg');
-
                 const fullUrl = uploadUrl.startsWith('/') ? 
                     window.location.origin + uploadUrl : uploadUrl;
 
                 const uploadResponse = await fetch(fullUrl, {
-                    method: 'POST',
-                    body: formData
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': file.type
+                    },
+                    body: file
                 });
 
                 if (!uploadResponse.ok) {

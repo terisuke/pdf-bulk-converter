@@ -60,18 +60,18 @@ python_version=$(python --version 2>&1)
 echo "使用するPythonバージョン: $python_version"
 
 # 仮想環境が存在する場合は削除
-if [ -d "venv" ]; then
+if [ -d "../venv" ]; then
     echo "既存の仮想環境を削除します..."
-    rm -rf venv
+    rm -rf ../venv
 fi
 
 # 仮想環境を作成
 echo "Python 3.12.9で仮想環境を作成します..."
-python -m venv venv
+python -m venv ../venv
 
 # 仮想環境をアクティベート
 echo "仮想環境をアクティベートします..."
-source venv/bin/activate
+source ../venv/bin/activate
 
 # pipとsetuptoolsを最新バージョンにアップグレード
 echo "pipとsetuptoolsをアップグレードします..."
@@ -112,7 +112,7 @@ fi
 
 # 依存関係をインストール
 echo "プロジェクトの依存関係をインストールします..."
-pip install -r requirements.txt
+pip install -r ../requirements.txt
 
 if [ $? -ne 0 ]; then
     echo "依存関係のインストールに失敗しました。"
@@ -131,8 +131,8 @@ fi
 # 環境変数ファイルをコピー
 echo ""
 echo "環境変数を設定しています..."
-if [ -f ".env.local" ]; then
-    cp .env.local .env
+if [ -f "../.env.local" ]; then
+    cp ../.env.local ../.env
     echo ".env.localを.envにコピーしました"
 else
     echo "WARNING: .env.localファイルが見つかりません。環境変数を手動で設定する必要があります。"
@@ -143,10 +143,10 @@ echo ""
 echo "セットアップが完了しました！"
 echo ""
 echo "仮想環境をアクティベートするには以下を実行してください:"
-echo "    source venv/bin/activate"
+echo "    source ../venv/bin/activate"
 echo ""
 echo "開発サーバーを起動するには以下を実行してください:"
 echo "    uvicorn app.main:app --reload"
 
 # 仮想環境を終了
-deactivate
+deactivate 

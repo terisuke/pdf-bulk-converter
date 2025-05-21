@@ -90,7 +90,7 @@ def install_requirements():
         subprocess.run([sys.executable, "-m", "pip", "install", "--upgrade", "pip", "setuptools", "wheel"], check=True)
         
         # First, try to install everything except PyMuPDF
-        with open("requirements.txt", "r") as f:
+        with open("../requirements.txt", "r") as f: # Corrected path
             requirements = f.read().splitlines()
         
         non_mupdf_requirements = [req for req in requirements if not req.startswith("PyMuPDF")]
@@ -151,4 +151,4 @@ def main():
     print("    uvicorn app.main:app --reload")
 
 if __name__ == "__main__":
-    main()
+    main() 

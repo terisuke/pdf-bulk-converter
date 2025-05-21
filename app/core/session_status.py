@@ -29,15 +29,27 @@ class SessionStatusManager:
             logger.info(f"セッション {session_id} の進捗を更新: {progress:.2f}%")
 
     def add_imagenum(self, session_id: str, image_cnt: int):
-        self._statuses.get(session_id).image_num += image_cnt
-        logger.info(f"画像連番を更新: {self._statuses.get(session_id).image_num:07d}")
+        status = self._statuses.get(session_id)
+        if status is None:
+            logger.error("Session %s not found when adding image number", session_id)
+            return
+        status.image_num += image_cnt
+        logger.info("画像連番を更新: %07d", status.image_num)
 
     def set_imagenum(self, session_id: str, image_num: int):
-        self._statuses.get(session_id).image_num = image_num
-        logger.info(f"画像連番を更新: {self._statuses.get(session_id).image_num:07d}")
+        status = self._statuses.get(session_id)
+        if status is None:
+            logger.error("Session %s not found when setting image number", session_id)
+            return
+        status.image_num = image_num
+        logger.info("画像連番を更新: %07d", status.image_num)
 
     def get_imagenum(self, session_id: str) -> int:
-        return self._statuses.get(session_id).image_num
+        status = self._statuses.get(session_id)
+        if status is None:
+            logger.error("Session %s not found when getting image number", session_id)
+            return 0
+        return status.image_num
 
 # シングルトンインスタンスを作成
 session_status_manager = SessionStatusManager() 

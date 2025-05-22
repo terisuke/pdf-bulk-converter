@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, UploadFile, File
+from fastapi import APIRouter, HTTPException, UploadFile, File, Request
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from app.models.schemas import UploadRequest, SessionRequest, SessionResponse, UploadResponse, SessionStatus, JobStatus, DownloadResponse, NotifyUploadCompleteRequest
 from app.services.storage import generate_session_url, generate_upload_url, generate_download_url
@@ -60,6 +60,22 @@ async def convert_and_notify(session_id: str, job_ids: List[str], dpi: int = 300
             if not gcs_available:
                 logger.warning("Google Cloud Storage module is not available, cannot access GCS")
             else:
+                client = None
+                try:
+                    with open(settings.gcp_keypath, "r") as f:
+                        credentials_info = json.load(f)
+                    if not gcs_available:
+                        logger.error("Google Cloud Storage module is not available, cannot initialize client")
+                        raise RuntimeError("Google Cloud Storage module is not available, cannot initialize client")
+                        
+                    client = google.cloud.storage.Client.from_service_account_info(credentials_info)
+                    logger.info(f"GCS client initialized for project: {client.project}")
+                except FileNotFoundError as exc:
+                    logger.error(f"GCP key file not found: {settings.gcp_keypath}")
+                    raise FileNotFoundError(f"GCP key file not found: {settings.gcp_keypath}") from exc
+                except Exception as e:
+                    logger.error(f"Failed to initialize GCS client: {str(e)}")
+                    raise RuntimeError(f"Failed to initialize GCS client: {str(e)}") from e
                 
                 for job_id in job_ids:
                     retry_count = 0
@@ -67,14 +83,6 @@ async def convert_and_notify(session_id: str, job_ids: List[str], dpi: int = 300
                     
                     while not success and retry_count <= max_retries:
                         try:
-                            with open(settings.gcp_keypath, "r") as f:
-                                credentials_info = json.load(f)
-                            if not gcs_available:
-                                logger.error("Google Cloud Storage module is not available, cannot initialize client")
-                                raise RuntimeError("Google Cloud Storage module is not available, cannot initialize client")
-                                
-                            client = google.cloud.storage.Client.from_service_account_info(credentials_info)
-                            logger.info(f"GCS client initialized for project: {client.project}")
                             
                             bucket = client.bucket(settings.gcs_bucket_works)
                             blobs = list(bucket.list_blobs(prefix=f"{session_id}/{job_id}/"))
@@ -358,23 +366,42 @@ async def local_upload(
     session_id: str,
     job_id: str,
     filename: str,
-    file: UploadFile = File(...),
+    request: Request,
     background_tasks: BackgroundTasks = BackgroundTasks()
 ):
-    """ローカルファイルアップロードエンドポイント"""
+    """
+    ローカル環境でのファイルアップロード用エンドポイント
+    直接ファイルボディを受け付ける
+    """
+    logger.info(f"ローカルアップロード開始: session_id={session_id}, job_id={job_id}, filename={filename}")
+    
     try:
         # URLデコードされたファイル名を取得
         decoded_filename = unquote(filename)
-        logger.info(f"ファイルアップロード開始: {decoded_filename}")
+        logger.info(f"ファイルアップロード開始: {decoded_filename}, session_id: {session_id}, job_id: {job_id}")
+        
+        content = await request.body()
+        logger.info(f"リクエストボディサイズ: {len(content)} bytes")
+        
+        content_type = request.headers.get("content-type", "")
+        logger.info(f"Content-Type: {content_type}")
         
         # ファイルの保存先パスを設定
-        upload_path = os.path.join(settings.get_storage_path(session_id, job_id), decoded_filename)
+        storage_path = settings.get_storage_path(session_id, job_id)
+        upload_path = os.path.join(storage_path, decoded_filename)
+        logger.info(f"ファイル保存先パス: {upload_path}, ディレクトリ: {storage_path}")
+        
         os.makedirs(os.path.dirname(upload_path), exist_ok=True)
+        logger.info(f"ディレクトリ作成完了: {os.path.dirname(upload_path)}")
         
         # ファイルを保存
-        with open(upload_path, "wb") as f:
-            content = await file.read()
-            f.write(content)
+        try:
+            with open(upload_path, "wb") as f:
+                f.write(content)
+            logger.info(f"ファイル保存完了: {upload_path}, サイズ: {len(content)} bytes")
+        except Exception as e:
+            logger.error(f"ファイル保存エラー: {str(e)}, パス: {upload_path}")
+            raise
         
         # ジョブステータスを更新
         job_status = JobStatus(
@@ -386,24 +413,35 @@ async def local_upload(
             created_at=datetime.now()
         )
         job_status_manager.update_status(job_id, job_status)
+        logger.info(f"ジョブステータス更新完了: {job_id}, status: processing")
         
         # このジョブのすべてのファイルがアップロードされたかチェック
         if job_id in pending_files:
+            logger.info(f"pending_files内のジョブID: {job_id}, 予定ファイル数: {len(pending_files[job_id])}")
+            
             # アップロード済みのファイル数をカウント
-            uploaded_files = [f for f in os.listdir(settings.get_storage_path(session_id, job_id)) 
-                            if f.lower().endswith('.pdf')]
-                            # if f.lower().endswith(('.pdf', '.zip'))]
+            try:
+                uploaded_files = [f for f in os.listdir(storage_path) if f.lower().endswith('.pdf')]
+                logger.info(f"アップロード済みファイル: {uploaded_files}, 数: {len(uploaded_files)}")
+            except Exception as e:
+                logger.error(f"ディレクトリ読み取りエラー: {str(e)}, パス: {storage_path}")
+                raise
             
             # すべてのファイルがアップロードされた場合、変換処理を開始
             if len(uploaded_files) == len(pending_files[job_id]):
+                logger.info(f"すべてのファイルがアップロードされました。変換処理を開始します。")
+                
                 # 保存されたファイルのパスを取得
-                file_paths = [os.path.join(settings.get_storage_path(session_id, job_id), f) for f in uploaded_files]
+                file_paths = [os.path.join(storage_path, f) for f in uploaded_files]
+                logger.info(f"処理対象ファイルパス: {file_paths}")
                 
                 # ZIPファイルとPDFファイルを分離
                 zip_files = [f for f in file_paths if f.lower().endswith('.zip')]
                 pdf_files = [f for f in file_paths if f.lower().endswith('.pdf')]
+                logger.info(f"PDFファイル数: {len(pdf_files)}, ZIPファイル数: {len(zip_files)}")
                 
                 if pdf_files:
+                    logger.info(f"バックグラウンドタスクを追加: convert_and_notify_single, session_id: {session_id}, job_id: {job_id}")
                     background_tasks.add_task(
                         convert_and_notify_single,
                         session_id=session_id,
@@ -586,6 +624,14 @@ async def notify_upload_complete(
     try:
         logger.info(f"Upload complete notification received for session: {session_id}")
         
+        if request.session_id != session_id:
+            error_message = f"セッションIDの不一致: パスパラメータ={session_id}, リクエスト本文={request.session_id}"
+            logger.error(error_message)
+            raise HTTPException(status_code=400, detail=error_message)
+        
+        current_status = session_status_manager.get_status(session_id)
+        current_image_num = current_status.image_num if current_status else request.start_number if hasattr(request, 'start_number') else 0
+        
         session_status_manager.update_status(
             session_id,
             SessionStatus(
@@ -594,7 +640,7 @@ async def notify_upload_complete(
                 message="PDFファイルの変換を開始します",
                 progress=20.0,
                 pdf_num=len(request.job_ids),
-                image_num=0,
+                image_num=current_image_num,
                 created_at=datetime.now()
             )
         )
@@ -667,4 +713,4 @@ async def update_session_status(session_id: str, status_update: dict):
         return {"message": "Session status updated successfully"}
     except Exception as e:
         logger.error(f"セッションステータス更新エラー: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
+        raise HTTPException(status_code=500, detail=str(e))                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                

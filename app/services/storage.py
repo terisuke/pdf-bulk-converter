@@ -2,6 +2,7 @@ from app.core.config import get_settings
 import uuid
 import os
 import shutil
+import logging
 from pathlib import Path
 
 try:  # google-cloud-storage is optional in local mode
@@ -11,6 +12,8 @@ except ImportError:  # pragma: no cover - optional dependency
 import json
 
 settings = get_settings()
+
+logger = logging.getLogger(__name__)
 
 # ローカルストレージの初期化
 if settings.gcp_region == "local":
@@ -22,9 +25,14 @@ else:
     try:
         with open(settings.gcp_keypath, "r") as f:
             credentials_info = json.load(f)
+        client = storage.Client.from_service_account_info(credentials_info)
+        logging.info(f"GCS client initialized for project: {client.project}")
     except FileNotFoundError as exc:
+        logging.error(f"GCP key file not found: {settings.gcp_keypath}")
         raise FileNotFoundError(f"GCP key file not found: {settings.gcp_keypath}") from exc
-    client = storage.Client.from_service_account_info(credentials_info)
+    except Exception as e:
+        logging.error(f"Failed to initialize GCS client: {str(e)}")
+        raise RuntimeError(f"Failed to initialize GCS client: {str(e)}")
 
 def generate_session_url() -> tuple[str, str]:
     session_id = str(uuid.uuid4())
@@ -57,15 +65,24 @@ def generate_upload_url(filename: str, session_id: str, content_type: str = "") 
         if not content_type:
             content_type = "application/pdf"  # デフォルトのcontent_type
         
-        bucket = client.bucket(settings.gcs_bucket_works)
-        blob = bucket.blob(f"{session_id}/{job_id}/{safe_filename}")
-        
-        url = blob.generate_signed_url(
-            version="v4",
-            expiration=settings.sign_url_exp,
-            method="PUT",
-            content_type=content_type
-        )
+        if client is None:
+            logger.error("GCS client is None, cannot generate upload URL")
+            raise RuntimeError("GCS client is None, cannot generate upload URL")
+            
+        try:
+            bucket = client.bucket(settings.gcs_bucket_works)
+            blob = bucket.blob(f"{session_id}/{job_id}/{safe_filename}")
+            
+            url = blob.generate_signed_url(
+                version="v4",
+                expiration=settings.sign_url_exp,
+                method="PUT",
+                content_type=content_type
+            )
+            logger.info(f"Generated signed URL for upload: {session_id}/{job_id}/{safe_filename}")
+        except Exception as e:
+            logger.error(f"Failed to generate signed URL: {str(e)}")
+            raise
         
         return url, job_id
 
@@ -92,16 +109,24 @@ def generate_download_url(session_id: str) -> str:
         return f"/local-download/{session_id}/{encoded_filename}"
     else:
         # クラウドモード: 署名付きURLを生成
-        bucket = client.bucket(settings.gcs_bucket_works)
-        blob = bucket.blob(f"{session_id}/all_pdfs_images.zip")
-        
-        url = blob.generate_signed_url(
-            version="v4",
-            expiration=settings.sign_url_exp,
-            method="GET"
-        )
-        
-        return url
+        if client is None:
+            logger.error("GCS client is None, cannot generate download URL")
+            raise RuntimeError("GCS client is None, cannot generate download URL")
+            
+        try:
+            bucket = client.bucket(settings.gcs_bucket_works)
+            blob = bucket.blob(f"{session_id}/all_pdfs_images.zip")
+            
+            url = blob.generate_signed_url(
+                version="v4",
+                expiration=settings.sign_url_exp,
+                method="GET"
+            )
+            logger.info(f"Generated signed URL for download: {session_id}/all_pdfs_images.zip")
+            return url
+        except Exception as e:
+            logger.error(f"Failed to generate signed URL for download: {str(e)}")
+            raise
     # 開発中はローカルモードのみ対応
 
 def cleanup_job(session_id: str, job_id: str) -> None:

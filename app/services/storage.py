@@ -1,9 +1,10 @@
 from app.core.config import get_settings
-import uuid
 import os
-import shutil
 import logging
+import shutil
+import uuid
 from pathlib import Path
+from typing import Optional
 
 try:  # google-cloud-storage is optional in local mode
     from google.cloud import storage
@@ -138,3 +139,50 @@ def cleanup_job(session_id: str, job_id: str) -> None:
     else:
         # クラウドモードのクリーンアップはCloud Storageのライフサイクルポリシーに任せる
         pass
+
+
+def _max_number_in_path(path: str) -> int:
+    """Return the maximum numeric filename in the given directory tree."""
+    max_number = 0
+    for root_dir, _, files in os.walk(path):
+        for filename in files:
+            if filename.lower().endswith((".jpeg", ".jpg")):
+                name, _ = os.path.splitext(filename)
+                if name.isdigit():
+                    num = int(name)
+                    if num > max_number:
+                        max_number = num
+    return max_number
+
+
+def get_next_image_number(path: Optional[str] = None) -> int:
+    """Calculate the next available image number.
+
+    Args:
+        path: Optional path for local mode. Defaults to workspace path.
+
+    Returns:
+        int: next available number (current max + 1)
+    """
+    try:
+        if settings.gcp_region != "local":
+            if client is None:
+                logger.warning("GCS client is None, defaulting to 1")
+                return 1
+            bucket = client.bucket(settings.gcs_bucket_image)
+            max_number = 0
+            for blob in bucket.list_blobs():
+                base = os.path.basename(blob.name)
+                if base.lower().endswith((".jpeg", ".jpg")):
+                    name, _ = os.path.splitext(base)
+                    if name.isdigit():
+                        num = int(name)
+                        if num > max_number:
+                            max_number = num
+            return max_number + 1
+
+        local_path = path or settings.workspace_path
+        return _max_number_in_path(local_path) + 1
+    except Exception as exc:
+        logger.error("Failed to get next image number: %s", exc)
+        return 1

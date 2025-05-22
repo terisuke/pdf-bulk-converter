@@ -3,7 +3,7 @@ from typing import Optional, List
 from datetime import datetime
 
 class SessionRequest(BaseModel):
-    start_number: Optional[int] = 1  # 連番開始番号
+    start_number: Optional[int] = None  # 連番開始番号（未指定の場合は自動計算）
 
 class UploadRequest(BaseModel):
     session_id: str

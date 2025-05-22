@@ -1,113 +1,22 @@
 # yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
-CodeRabbit:
-  reviews:
-    auto_review: true  # 自動レビューを有効にする
-    review_status: true  # レビューステータスメッセージを表示する
-    
-    # レビュー対象のファイルパスフィルター
-    path_filters:
-      # Python ファイル (FastAPI バックエンド)
-      - "**/*.py"
-      - "**/requirements.txt"
-      - "**/setup.py"
-      
-      # JavaScript ファイル (フロントエンド)
-      - "**/*.js"
-      - "**/package.json"
-      - "**/package-lock.json"
-      
-      # HTML テンプレート
-      - "**/templates/**/*.html"
-      
-      # CSS ファイル (Tailwind CSS)
-      - "**/*.css"
-      - "**/tailwind.config.js"
-      - "**/postcss.config.js"
-      
-      # 設定ファイル
-      - "**/.env.example"
-      - "**/Dockerfile"
-      - "**/app.yaml"
-      - "**/*.yml"
-      - "**/*.yaml"
-      
-      # ドキュメント
-      - "**/*.md"
-      - "**/*.rst"
-      
-    # レビューから除外するパスフィルター
-    path_excludes:
-      # 依存関係やビルド成果物
-      - "**/node_modules/**"
-      - "**/venv/**"
-      - "**/env/**"
-      - "**/__pycache__/**"
-      - "**/*.pyc"
-      - "**/.pytest_cache/**"
-      
-      # 一時ファイルや出力ファイル
-      - "**/tmp_workspace/**"
-      - "**/output/**"
-      - "**/uploads/**"
-      - "**/local_storage/**"
-      
-      # Git 関連
-      - "**/.git/**"
-      - "**/.cursor/**"
-      
-      # 環境設定ファイル（機密情報含む可能性）
-      - "**/.env"
-      - "**/.env.local"
-      
-      # ログファイル
-      - "**/*.log"
-      
-    # レビューの設定
-    review_config:
-      # セキュリティ問題に重点を置く
-      focus_areas:
-        - security
-        - performance
-        - maintainability
-        - best_practices
-      
-      # Python 固有の設定
-      python:
-        # FastAPI のベストプラクティスをチェック
-        frameworks:
-          - fastapi
-        # セキュリティチェックを有効化
-        security_checks: true
-        # 非同期処理のパターンをチェック
-        async_patterns: true
-      
-      # JavaScript 固有の設定
-      javascript:
-        # ES6+ の構文をチェック
-        es_version: "es2020"
-        # セキュリティチェックを有効化
-        security_checks: true
-      
-      # HTML/CSS の設定
-      frontend:
-        # Tailwind CSS のベストプラクティスをチェック
-        css_frameworks:
-          - tailwindcss
-        # アクセシビリティをチェック
-        accessibility: true
-      
-      # Docker の設定
-      docker:
-        # セキュリティとベストプラクティスをチェック
-        security_scan: true
-        best_practices: true
-  
-  # 通知設定
-  notifications:
-    # プルリクエストコメントを有効化
-    pull_request_comments: true
-    # 重要な問題のみ通知
-    severity_threshold: "medium"
-  
-  # 言語設定
-  language: "ja"  # 日本語でレビューコメントを生成
+language: "ja-JP" # レビュー言語を日本語に設定
+early_access: false # 早期アクセス機能を無効化 (例に倣う)
+
+reviews:
+  profile: "chill" # レビュープロファイルを設定 (例に倣う)
+  request_changes_workflow: false # 変更要求ワークフローを無効化 (例に倣う)
+  high_level_summary: true # 高レベルの要約を有効化 (例に倣う)
+  poem: true # レビューに詩を含める (例に倣う)
+  review_status: true  # レビューステータスメッセージを表示する (元の設定を維持)
+  collapse_walkthrough: false # ウォークスルーを折りたたまない (例に倣う)
+
+  auto_review:
+    enabled: true # 自動レビューを有効にする (元の設定を維持し、例の形式に)
+    drafts: false # ドラフトPRの自動レビューを無効化 (例に倣う)
+
+  path_filters:  # レビュー対象のファイルパスフィルター (例の項目と形式に)
+    - "**/*.py"
+    - "**/*.js"
+    - "**/*.ts"
+chat:
+  auto_reply: true # チャットの自動返信を有効化 (例に倣う)

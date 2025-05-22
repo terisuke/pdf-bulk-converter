@@ -18,7 +18,7 @@ API_BASE_URL = "http://localhost:8000"
 def main():
     """Main function to test PDF conversion through the API."""
     try:
-        test_file_path = "test/test.pdf"
+        test_file_path = "../test/test.pdf"
         if not os.path.exists(test_file_path):
             logger.error(f"Test file not found: {test_file_path}")
             return

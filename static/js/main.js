@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const progressText = document.getElementById('progressText');
     const progressPercent = document.getElementById('progressPercent');
     const resultDiv = document.getElementById('result');
-    const downloadLink = document.getElementById('downloadLink');
+    const idleStatus = document.getElementById('idleStatus');
 
     let currentSessionId = null;
     let jobIds = []; // Store all job IDs
@@ -149,6 +149,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             // 進捗表示を開始
+            idleStatus.classList.add('hidden');
             progressDiv.classList.remove('hidden');
             resultDiv.classList.add('hidden');
             
@@ -274,7 +275,6 @@ document.addEventListener('DOMContentLoaded', () => {
             eventSource.close();
             progressDiv.classList.add('hidden');
             resultDiv.classList.remove('hidden');
-            downloadLink.style.display = 'none';
             document.querySelector('#result p').textContent = '変換が完了しました。画像はGCS_BUCKET_IMAGEに保存されました。';
             resetUI();
         } else if (status === 'error') {
@@ -289,7 +289,15 @@ document.addEventListener('DOMContentLoaded', () => {
         convertBtn.disabled = selectedFiles.length === 0;
         dropZone.style.pointerEvents = 'auto';
         dropZone.classList.remove('opacity-50');
+        
+        // サイドバーの状態をリセット
+        if (!resultDiv.classList.contains('hidden')) {
+            // 結果が表示されている場合はそのままにする
+            return;
+        }
+        
         progressDiv.classList.add('hidden');
+        idleStatus.classList.remove('hidden');
     }
 
     // 初期化

@@ -18,134 +18,262 @@
         width: 64px;
         height: 64px;
       }
+      .sidebar-progress {
+        min-height: 400px;
+        position: sticky;
+        top: 32px;
+      }
+      @media (max-width: 1024px) {
+        .sidebar-progress {
+          position: relative;
+          top: 0;
+          min-height: auto;
+        }
+      }
     </style>
   </head>
   <body class="bg-gray-100">
-    <div class="container mx-auto px-4 py-8 max-w-4xl">
+    <div class="container mx-auto px-4 py-8 max-w-7xl">
       <h1 class="text-3xl font-bold mb-8 text-center">PDF Bulk Converter</h1>
 
-      <!-- アップロードフォーム -->
-      <div class="bg-white rounded-lg shadow-md p-8 mb-8">
-        <h2 class="text-2xl font-semibold mb-6 text-center">PDFファイルをアップロード</h2>
-        
-        <!-- ドラッグ&ドロップエリア -->
-        <div 
-          id="dropZone" 
-          class="drop-zone border-2 border-dashed border-gray-300 rounded-lg p-12 text-center mb-6 cursor-pointer hover:border-blue-400 hover:bg-blue-50"
-        >
-          <div class="mb-4">
-            <svg class="file-upload-icon mx-auto text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                    d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-            </svg>
-          </div>
-          <div class="mb-4">
-            <h3 class="text-lg font-semibold text-gray-700 mb-2">ファイルをドラッグ&ドロップ</h3>
-            <p class="text-gray-500 mb-2">または</p>
-            <button type="button" id="fileSelectBtn" class="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition-colors">
-              ファイルを選択
-            </button>
-          </div>
-          <p class="text-sm text-gray-500">PDF、ZIPファイル対応（複数選択可能）</p>
-          
-          <!-- 隠しファイル入力 -->
-          <input
-            type="file"
-            id="pdfFile"
-            accept=".pdf,.zip"
-            multiple
-            class="hidden"
-          />
-        </div>
+      <!-- メインコンテンツエリア -->
+      <div class="flex flex-col lg:flex-row gap-8">
+        <!-- 左側: アップロードフォーム -->
+        <div class="flex-1">
+          <div class="bg-white rounded-lg shadow-md p-8">
+            <h2 class="text-2xl font-semibold mb-6 text-center">
+              PDFファイルをアップロード
+            </h2>
 
-        <!-- 選択されたファイル一覧 -->
-        <div id="fileList" class="mb-6 hidden">
-          <h3 class="text-lg font-semibold mb-3">選択されたファイル:</h3>
-          <div id="fileItems" class="space-y-2 max-h-40 overflow-y-auto"></div>
-        </div>
+            <!-- ドラッグ&ドロップエリア -->
+            <div
+              id="dropZone"
+              class="drop-zone border-2 border-dashed border-gray-300 rounded-lg p-12 text-center mb-6 cursor-pointer hover:border-blue-400 hover:bg-blue-50"
+            >
+              <div class="mb-4">
+                <svg
+                  class="file-upload-icon mx-auto text-gray-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                  />
+                </svg>
+              </div>
+              <div class="mb-4">
+                <h3 class="text-lg font-semibold text-gray-700 mb-2">
+                  ファイルをドラッグ&ドロップ
+                </h3>
+                <p class="text-gray-500 mb-2">または</p>
+                <button
+                  type="button"
+                  id="fileSelectBtn"
+                  class="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition-colors"
+                >
+                  ファイルを選択
+                </button>
+              </div>
+              <p class="text-sm text-gray-500">
+                PDF、ZIPファイル対応（複数選択可能）
+              </p>
 
-        <!-- 設定オプション -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">開始番号:</label>
-            <input
-              type="number"
-              id="startNumber"
-              min="1"
-              value="1"
-              class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">DPI:</label>
-            <select id="dpi" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
-              <option value="150">150</option>
-              <option value="300" selected>300</option>
-              <option value="600">600</option>
-            </select>
-          </div>
-          <div class="flex items-end">
-            <div class="text-sm text-gray-600 bg-blue-50 p-3 rounded-lg">
-              <strong>出力形式:</strong> JPEG<br>
-              <strong>ファイル名:</strong> 7桁連番
+              <!-- 隠しファイル入力 -->
+              <input
+                type="file"
+                id="pdfFile"
+                accept=".pdf,.zip"
+                multiple
+                class="hidden"
+              />
+            </div>
+
+            <!-- 選択されたファイル一覧 -->
+            <div id="fileList" class="mb-6 hidden">
+              <h3 class="text-lg font-semibold mb-3">選択されたファイル:</h3>
+              <div
+                id="fileItems"
+                class="space-y-2 max-h-40 overflow-y-auto"
+              ></div>
+            </div>
+
+            <!-- 設定オプション -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2"
+                  >開始番号:</label
+                >
+                <input
+                  type="number"
+                  id="startNumber"
+                  min="1"
+                  class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2"
+                  >DPI:</label
+                >
+                <select
+                  id="dpi"
+                  class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="150">150</option>
+                  <option value="300" selected>300</option>
+                  <option value="600">600</option>
+                </select>
+              </div>
+              <div class="flex items-end">
+                <div class="text-sm text-gray-600 bg-blue-50 p-3 rounded-lg">
+                  <strong>出力形式:</strong> JPEG<br />
+                  <strong>ファイル名:</strong> 7桁連番
+                </div>
+              </div>
+            </div>
+
+            <!-- 変換開始ボタン -->
+            <div class="text-center">
+              <button
+                type="submit"
+                id="convertBtn"
+                class="bg-green-500 text-white px-12 py-4 rounded-lg text-lg font-semibold hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                disabled
+              >
+                変換開始
+              </button>
+              <p class="text-sm text-gray-500 mt-2">
+                ファイルを選択してから変換を開始してください
+              </p>
             </div>
           </div>
         </div>
 
-        <!-- 変換開始ボタン -->
-        <div class="text-center">
-          <button
-            type="submit"
-            id="convertBtn"
-            class="bg-green-500 text-white px-12 py-4 rounded-lg text-lg font-semibold hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-            disabled
+        <!-- 右側: 進捗・結果表示サイドバー -->
+        <div class="w-full lg:w-96">
+          <!-- 進捗表示 -->
+          <div
+            id="progress"
+            class="bg-white rounded-lg shadow-md p-6 mb-6 sidebar-progress hidden"
           >
-            変換開始
-          </button>
-          <p class="text-sm text-gray-500 mt-2">ファイルを選択してから変換を開始してください</p>
-        </div>
-      </div>
+            <h2 class="text-xl font-semibold mb-4 text-blue-600">
+              <svg
+                class="w-5 h-5 inline-block mr-2"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M13 10V3L4 14h7v7l9-11h-7z"
+                />
+              </svg>
+              変換進捗
+            </h2>
+            <div class="space-y-4">
+              <div class="w-full bg-gray-200 rounded-full h-4">
+                <div
+                  id="progressBar"
+                  class="bg-blue-600 h-4 rounded-full transition-all duration-300"
+                  style="width: 0%"
+                ></div>
+              </div>
+              <div class="flex justify-between text-sm">
+                <span id="progressPercent" class="text-blue-600 font-semibold"
+                  >0%</span
+                >
+              </div>
+              <div class="bg-gray-50 p-3 rounded-lg">
+                <p id="progressText" class="text-gray-600 text-sm">準備中...</p>
+              </div>
+            </div>
+          </div>
 
-      <!-- 進捗表示 -->
-      <div id="progress" class="bg-white rounded-lg shadow-md p-6 mb-8 hidden">
-        <h2 class="text-xl font-semibold mb-4">変換進捗</h2>
-        <div class="space-y-4">
-          <div class="w-full bg-gray-200 rounded-full h-4">
-            <div
-              id="progressBar"
-              class="bg-blue-600 h-4 rounded-full transition-all duration-300"
-              style="width: 0%"
-            ></div>
+          <!-- 結果表示 -->
+          <div
+            id="result"
+            class="bg-white rounded-lg shadow-md p-6 sidebar-progress hidden"
+          >
+            <div class="text-center">
+              <div class="mb-4">
+                <svg
+                  class="w-16 h-16 text-green-500 mx-auto"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M5 13l4 4L19 7"
+                  />
+                </svg>
+              </div>
+              <h2 class="text-2xl font-semibold mb-4 text-green-600">
+                変換完了
+              </h2>
+              <div class="space-y-4">
+                <p class="text-gray-600">
+                  変換が完了しました。画像はGCS_BUCKET_IMAGEに保存されました。
+                </p>
+              </div>
+            </div>
           </div>
-          <div class="flex justify-between text-sm">
-            <span id="progressText" class="text-gray-600">準備中...</span>
-            <span id="progressPercent" class="text-blue-600 font-semibold">0%</span>
-          </div>
-        </div>
-      </div>
 
-      <!-- 結果表示 -->
-      <div id="result" class="bg-white rounded-lg shadow-md p-6 hidden">
-        <div class="text-center">
-          <div class="mb-4">
-            <svg class="w-16 h-16 text-green-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-            </svg>
-          </div>
-          <h2 class="text-2xl font-semibold mb-4 text-green-600">変換完了</h2>
-          <div class="space-y-4">
-            <p class="text-gray-600">
-              変換が完了しました。画像はGCS_BUCKET_IMAGEに保存されました。
-            </p>
-            <!-- ダウンロードリンクは非表示にするが、JSで参照しているためDOMからは削除しない -->
-            <a
-              id="downloadLink"
-              href="#"
-              style="display: none;"
-              class="inline-block bg-green-500 text-white px-6 py-3 rounded-lg hover:bg-green-600 transition-colors"
-            >
-              ダウンロード
-            </a>
+          <!-- ステータス表示（アイドル状態） -->
+          <div
+            id="idleStatus"
+            class="bg-white rounded-lg shadow-md p-6 sidebar-progress"
+          >
+            <h2 class="text-xl font-semibold mb-4 text-gray-600">
+              <svg
+                class="w-5 h-5 inline-block mr-2"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              ステータス
+            </h2>
+            <div class="space-y-3">
+              <div class="flex items-center text-gray-600">
+                <svg
+                  class="w-4 h-4 mr-2"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                <span class="text-sm">変換待機中</span>
+              </div>
+              <div class="bg-gray-50 p-3 rounded-lg">
+                <p class="text-sm text-gray-600">
+                  PDFファイルを選択して、変換を開始してください。
+                </p>
+              </div>
+              <div class="text-xs text-gray-500">
+                <p>対応形式: PDF, ZIP</p>
+                <p>出力: JPEG画像（7桁連番）</p>
+              </div>
+            </div>
           </div>
         </div>
       </div>

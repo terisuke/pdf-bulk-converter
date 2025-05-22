@@ -16,7 +16,7 @@ async def test_conversion():
     print(f"Created job directory: {job_dir}")
     
     # テスト用のPDFファイルパス
-    source_pdf = "./test.pdf"
+    source_pdf = "../test.pdf"
     
     # テスト用のPDFファイルが存在しない場合は、テスト用のディレクトリを作成
     if not os.path.exists(source_pdf):
@@ -24,7 +24,7 @@ async def test_conversion():
         print("Creating a test directory with sample PDFs...")
         
         # テスト用のディレクトリを作成
-        test_dir = Path("./test_files")
+        test_dir = Path("../test_files")
         test_dir.mkdir(exist_ok=True)
         
         # テスト用のZIPファイルを作成

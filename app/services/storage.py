@@ -3,7 +3,6 @@ import os
 import logging
 import shutil
 import uuid
-from pathlib import Path
 from typing import Optional
 
 try:  # google-cloud-storage is optional in local mode
@@ -87,49 +86,6 @@ def generate_upload_url(filename: str, session_id: str, content_type: str = "") 
         
         return url, job_id
 
-def generate_download_url(session_id: str) -> str:
-    """署名付きダウンロードURLを生成（ローカルモードでは一時的なダウンロードパスを返す）"""
-    if settings.gcp_region == "local":
-        # ローカルモード: 一時的なダウンロードパスを返す
-        session_dirpath = settings.get_session_dirpath(session_id)
-        
-        # 両方のファイル名パターンをチェック
-        zip_filename = None
-        for filename in ["all_pdfs_images.zip", f"{session_id}_images.zip"]:
-            safe_name = os.path.basename(filename)
-            if os.path.exists(os.path.join(session_dirpath, safe_name)):
-                zip_filename = safe_name
-                break
-        
-        if not zip_filename:
-            raise ValueError("ZIP file not found")
-        
-        # URLエンコードされたファイル名を使用
-        from urllib.parse import quote
-        encoded_filename = quote(os.path.basename(zip_filename))
-        return f"/local-download/{session_id}/{encoded_filename}"
-    else:
-        # クラウドモード: 署名付きURLを生成
-        if client is None:
-            logger.error("GCS client is None, cannot generate download URL")
-            raise RuntimeError("GCS client is None, cannot generate download URL")
-            
-        try:
-            bucket = client.bucket(settings.gcs_bucket_works)
-            blob = bucket.blob(f"{session_id}/all_pdfs_images.zip")
-            
-            url = blob.generate_signed_url(
-                version="v4",
-                expiration=settings.sign_url_exp,
-                method="GET"
-            )
-            logger.info(f"Generated signed URL for download: {session_id}/all_pdfs_images.zip")
-            return url
-        except Exception as e:
-            logger.error(f"Failed to generate signed URL for download: {str(e)}")
-            raise
-    # 開発中はローカルモードのみ対応
-
 def cleanup_job(session_id: str, job_id: str) -> None:
     """Remove job related files for the given session."""
     if settings.gcp_region == "local":
@@ -140,11 +96,10 @@ def cleanup_job(session_id: str, job_id: str) -> None:
         # クラウドモードのクリーンアップはCloud Storageのライフサイクルポリシーに任せる
         pass
 
-
 def _max_number_in_path(path: str) -> int:
     """Return the maximum numeric filename in the given directory tree."""
     max_number = 0
-    for root_dir, _, files in os.walk(path):
+    for _, _, files in os.walk(path):
         for filename in files:
             if filename.lower().endswith((".jpeg", ".jpg")):
                 name, _ = os.path.splitext(filename)
@@ -153,7 +108,6 @@ def _max_number_in_path(path: str) -> int:
                     if num > max_number:
                         max_number = num
     return max_number
-
 
 def get_next_image_number(path: Optional[str] = None) -> int:
     """Calculate the next available image number.

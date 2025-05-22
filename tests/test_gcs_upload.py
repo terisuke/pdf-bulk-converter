@@ -11,7 +11,7 @@ def test_upload_to_gcs():
     settings = get_settings()
     bucket_works = settings.gcs_bucket_works
     # テスト用の設定
-    source_file = "./test.pdf"
+    source_file = "../test.pdf"
     # 現在日時からセッションIDを生成（YYYYMMDD_HHMMSS形式）
     session_id = "test-" + datetime.now().strftime("%Y%m%d-%H%M%S")
     job_id = str(uuid.uuid4())

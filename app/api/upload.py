@@ -40,6 +40,14 @@ settings = get_settings()
 # 複数のファイルを処理するための辞書
 pending_files = {}
 
+def get_session_image_num(session_id: str) -> int:
+    """
+    Retrieves the current image_num from the session status.
+    Defaults to 0 if the session status does not exist.
+    """
+    current_session_status = session_status_manager.get_status(session_id)
+    return current_session_status.image_num if current_session_status else 0
+
 async def convert_and_notify(session_id: str, job_ids: List[str], dpi: int = 300, format: str = "jpeg", max_retries: int = 3):
     """
     PDFファイルを変換し、進捗状況を通知する
@@ -144,8 +152,7 @@ async def convert_and_notify(session_id: str, job_ids: List[str], dpi: int = 300
             logger.error(error_message)
             
             # 現在のセッション状態を取得して開始番号を保持
-            current_session_status = session_status_manager.get_status(session_id)
-            start_image_num = current_session_status.image_num if current_session_status else 0
+            start_image_num = get_session_image_num(session_id)
             
             session_status_manager.update_status(
                 session_id,
@@ -170,8 +177,7 @@ async def convert_and_notify(session_id: str, job_ids: List[str], dpi: int = 300
         logger.error(error_message)
         
         # 現在のセッション状態を取得して開始番号を保持
-        current_session_status = session_status_manager.get_status(session_id)
-        start_image_num = current_session_status.image_num if current_session_status else 0
+        start_image_num = get_session_image_num(session_id)
         
         session_status_manager.update_status(
             session_id,
@@ -241,8 +247,7 @@ async def convert_and_notify_single(session_id: str, job_id: str, pdf_paths: Lis
         )
         
         # 現在のセッション状態を取得して開始番号を保持
-        current_session_status = session_status_manager.get_status(session_id)
-        start_image_num = current_session_status.image_num if current_session_status else 0
+        start_image_num = get_session_image_num(session_id)
         
         session_status_manager.update_status(
             session_id, 
@@ -472,8 +477,7 @@ async def notify_upload_complete(
         logger.info(f"Upload complete notification received for session: {session_id}")
         
         # 現在のセッション状態を取得して開始番号を保持
-        current_session_status = session_status_manager.get_status(session_id)
-        start_image_num = current_session_status.image_num if current_session_status else 0
+        start_image_num = get_session_image_num(session_id)
         
         session_status_manager.update_status(
             session_id,
@@ -526,4 +530,4 @@ async def update_session_status(session_id: str, status_update: dict):
         return {"message": "Session status updated successfully"}
     except Exception as e:
         logger.error(f"セッションステータス更新エラー: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

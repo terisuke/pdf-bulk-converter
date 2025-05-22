@@ -3,7 +3,7 @@ import zipfile
 import tempfile
 import shutil
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 import fitz
 from app.core.job_status import JobStatus, job_status_manager
 from app.core.session_status import SessionStatus, session_status_manager
@@ -146,7 +146,7 @@ async def convert_1pdf_to_images(session_id: str, job_id: str, pdf_path: str, dp
         return images_dir, []
 
 # 複数のPDFファイルを処理する関数を追加
-async def convert_pdfs_to_images(session_id: str, job_id: str, pdf_paths: List[str], dpi: int = 300, format: str = "jpeg", imagenum: int = 0) -> Tuple[str, List[str]]:
+async def convert_pdfs_to_images(session_id: str, job_id: str, pdf_paths: List[str], dpi: int = 300, format: str = "jpeg", start_number: Optional[int] = None) -> Tuple[str, List[str]]:
     """
     PDFファイルを画像変換する (複数対応)
     
@@ -156,7 +156,7 @@ async def convert_pdfs_to_images(session_id: str, job_id: str, pdf_paths: List[s
         pdf_paths: PDFファイルのパスリスト
         dpi: 出力画像のDPI
         format: 出力形式（常にjpeg）
-        imagenum: 画像番号の開始値
+        start_number: 連番開始番号
     
     Returns:
         Tuple[画像格納ディレクトリ, 生成された画像ファイルのパスリスト]
@@ -169,6 +169,10 @@ async def convert_pdfs_to_images(session_id: str, job_id: str, pdf_paths: List[s
         # 出力ディレクトリの作成
         images_dir = os.path.join(settings.get_session_dirpath(session_id), "images")
         os.makedirs(images_dir, exist_ok=True)
+        
+        if start_number is not None:
+            logger.info(f"Setting starting image number to: {start_number}")
+            session_status_manager.set_imagenum(session_id, start_number)
         
         # すべての画像ファイルのパスを保持
         all_image_paths = []

@@ -54,4 +54,5 @@ class NotifyUploadCompleteRequest(BaseModel):
     job_ids: List[str]  # 各ファイルに対応するジョブID
     dpi: int = 300
     format: str = "jpeg"
-    max_retries: int = 3  # リトライ回数の最大値    
+    max_retries: int = 3  # リトライ回数の最大値
+    start_number: Optional[int] = None  # 連番開始番号                

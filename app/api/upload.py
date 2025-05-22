@@ -1,7 +1,12 @@
 from fastapi import APIRouter, HTTPException, UploadFile, File
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from app.models.schemas import UploadRequest, SessionRequest, SessionResponse, UploadResponse, SessionStatus, JobStatus, DownloadResponse, NotifyUploadCompleteRequest
-from app.services.storage import generate_session_url, generate_upload_url, generate_download_url
+from app.services.storage import (
+    generate_session_url,
+    generate_upload_url,
+    generate_download_url,
+    get_next_image_number,
+)
 import os
 from app.core.config import get_settings
 from datetime import datetime, timedelta
@@ -257,14 +262,19 @@ async def convert_and_notify_single(session_id: str, job_id: str, pdf_paths: Lis
 def get_session_id(request: SessionRequest):
     try:
         session_url, session_id = generate_session_url()
-        print(f"session_id: {session_id}")
+        logger.info("session_id: %s", session_id)
+
+        start_number = request.start_number
+        if start_number is None:
+            start_number = get_next_image_number()
+
         initial_session = SessionStatus(
             session_id=session_id,
             status="uploading",
             progress=0.0,
             created_at=datetime.now(),
-            pdf_num=1,      # NOTE: PDF格納先を連番にする場合に使用を想定
-            image_num=request.start_number,
+            pdf_num=1,  # NOTE: PDF格納先を連番にする場合に使用を想定
+            image_num=start_number,
             message="セッションを初期化しました"
         )
         session_status_manager.update_status(session_id, initial_session)

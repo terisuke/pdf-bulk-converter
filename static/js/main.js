@@ -87,17 +87,36 @@ document.addEventListener('DOMContentLoaded', () => {
                 // ファイルをアップロード
                 const fullUrl = uploadUrl.startsWith('/') ? 
                     window.location.origin + uploadUrl : uploadUrl;
+                
+                console.log('Debug: Upload URL =', uploadUrl);
+                console.log('Debug: Full URL =', fullUrl);
+                console.log('Debug: File =', file.name, 'Size =', file.size);
 
-                const uploadResponse = await fetch(fullUrl, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': file.type
-                    },
-                    body: file
-                });
-
-                if (!uploadResponse.ok) {
-                    throw new Error(`アップロードに失敗しました: ${uploadResponse.status}`);
+                try {
+                    console.log('Debug: Preparing file for direct upload...');
+                    
+                    console.log('Debug: Sending direct file upload request...');
+                    
+                    const uploadResponse = await fetch(fullUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': file.type
+                        },
+                        body: file
+                    });
+                    
+                    console.log('Debug: Upload response status =', uploadResponse.status);
+                    
+                    if (!uploadResponse.ok) {
+                        const errorText = await uploadResponse.text();
+                        console.error('Debug: Upload error response =', errorText);
+                        throw new Error(`アップロードに失敗しました: ${uploadResponse.status} - ${errorText}`);
+                    }
+                    
+                    console.log('Debug: Upload successful');
+                } catch (uploadError) {
+                    console.error('Debug: Upload exception =', uploadError);
+                    throw uploadError;
                 }
             }
 
@@ -135,9 +154,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const { status, progress, message } = data;
         
         progressBar.style.width = `${progress}%`;
-        progressText.textContent = message || `変換中... ${progress}%`;
-
-        if (status === 'completed') {
+        
+        if (status === 'processing') {
+            progressText.textContent = message || `変換中... ${progress}%`;
+        } else if (status === 'completed') {
+            progressText.textContent = '変換が完了しました！';
             eventSource.close();
             progressDiv.classList.add('hidden');
             resultDiv.classList.remove('hidden');
@@ -148,4 +169,4 @@ document.addEventListener('DOMContentLoaded', () => {
             alert('エラーが発生しました: ' + message);
         }
     }
-});                                                                                                                        
+});                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                

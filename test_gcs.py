@@ -35,7 +35,7 @@ def main():
             raise FileNotFoundError(f"GCP key file not found: {gcp_keypath}") from exc
         except Exception as e:
             logger.error(f"Failed to initialize GCS client: {str(e)}")
-            raise RuntimeError(f"Failed to initialize GCS client: {str(e)}")
+            raise RuntimeError(f"Failed to initialize GCS client: {str(e)}") from e
         
         try:
             bucket_image = client.bucket(gcs_bucket_image)

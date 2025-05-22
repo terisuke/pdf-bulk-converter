@@ -83,15 +83,25 @@ async def convert_1pdf_to_images(session_id: str, job_id: str, pdf_path: str, dp
         imagenum_start = session_status_manager.get_imagenum(session_id)
         logger.info(f"Starting image number: {imagenum_start}, total pages: {total_pages}")
         
+        # デバッグログ: セッション状態を確認
+        current_session_status = session_status_manager.get_status(session_id)
+        if current_session_status:
+            logger.info(f"Current session status image_num: {current_session_status.image_num}")
+        else:
+            logger.error(f"No session status found for session_id: {session_id}")
+        
         # 各ページを画像に変換
         for page_num in range(total_pages):
             page = pdf_document[page_num]
             pix = page.get_pixmap(matrix=fitz.Matrix(dpi/72, dpi/72))
             
-            # 画像ファイル名を生成
+            # 画像ファイル名を生成（開始番号を考慮）
             imagenum_current = imagenum_start + page_num
             image_filename = f"{imagenum_current:07d}.{format}"
             image_path = os.path.join(images_dir, image_filename)
+            
+            # デバッグログ: 連番生成を確認
+            logger.info(f"Page {page_num+1}: imagenum_start({imagenum_start}) + page_num({page_num}) = {imagenum_current} -> {image_filename}")
             
             logger.info(f"Rendering page {page_num+1}/{total_pages} to {image_path}")
             
@@ -146,7 +156,7 @@ async def convert_1pdf_to_images(session_id: str, job_id: str, pdf_path: str, dp
         return images_dir, []
 
 # 複数のPDFファイルを処理する関数を追加
-async def convert_pdfs_to_images(session_id: str, job_id: str, pdf_paths: List[str], dpi: int = 300, format: str = "jpeg", imagenum: int = 0) -> Tuple[str, List[str]]:
+async def convert_pdfs_to_images(session_id: str, job_id: str, pdf_paths: List[str], dpi: int = 300, format: str = "jpeg") -> Tuple[str, List[str]]:
     """
     PDFファイルを画像変換する (複数対応)
     
@@ -156,7 +166,6 @@ async def convert_pdfs_to_images(session_id: str, job_id: str, pdf_paths: List[s
         pdf_paths: PDFファイルのパスリスト
         dpi: 出力画像のDPI
         format: 出力形式（常にjpeg）
-        imagenum: 画像番号の開始値
     
     Returns:
         Tuple[画像格納ディレクトリ, 生成された画像ファイルのパスリスト]

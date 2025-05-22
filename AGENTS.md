@@ -12,7 +12,7 @@ pdf-bulk-converter/
 ├── app.yaml                       # App Engine設定ファイル
 ├── app/                           # FastAPIアプリケーション
 │   ├── api/                       # APIエンドポイント
-│   │   └── upload.py              # アップロード関連
+│   │   └── upload.py              # アップロード・ステータス管理関連
 │   ├── core/                      # コア機能
 │   │   ├── config.py              # 設定管理
 │   │   ├── job_status.py          # ジョブ状態管理
@@ -23,7 +23,7 @@ pdf-bulk-converter/
 │   │   └── schemas.py             # Pydanticモデル
 │   ├── services/                  # ビジネスロジック
 │   │   ├── cleanup.py             # 一時ファイル削除処理
-│   │   ├── converter.py           # PDF変換処理
+│   │   ├── converter.py           # PDF変換処理（重要）
 │   │   ├── job_status.py          # ジョブ状態管理サービス
 │   │   └── storage.py             # ストレージ管理
 │   └── static/                    # アプリケーション固有の静的ファイル
@@ -31,17 +31,9 @@ pdf-bulk-converter/
 │           └── main.js            # アプリケーション固有のJS
 ├── config/                        # 設定ファイル
 │   └── service_account.json       # GCPサービスアカウント認証情報
-├── static/                        # グローバルな静的ファイル
-│   ├── css/                       # スタイルシート
-│   └── js/                        # フロントエンドスクリプト
-│       └── main.js                # メインのJavaScriptファイル
-├── templates/                     # HTMLテンプレート
-│   └── index.html                 # メインページ
-├── tests/                         # テストディレクトリ
-│   ├── api/                       # APIテスト
-│   └── services/                  # サービステスト
-├── tmp_workspace/                 # 作業用一時ディレクトリ
-├── uploads/                       # アップロードファイル保存ディレクトリ
+├── local_storage/                 # ローカルストレージ
+├── .env                           # 環境変数
+├── .env.example                   # 環境変数テンプレート
 ├── .env.local                     # ローカル開発用環境変数
 ├── requirements.txt               # Python依存関係
 ├── setup.sh                       # セットアップスクリプト
@@ -53,7 +45,13 @@ pdf-bulk-converter/
 - Server-Sent Events による進捗通知
 - Service Layer による業務ロジック分離
 - PyMuPDF によるPDF処理
-- ストリーミングZIP生成
+- 連番ファイル名生成による統一されたファイル管理
+
+### 重要なファイルとその役割
+- `app/services/converter.py`: PDF→JPEG変換の核心ロジック
+- `app/core/session_status.py`: セッション管理と連番管理
+- `app/api/upload.py`: APIエンドポイントとバックグラウンド処理
+- `app/models/schemas.py`: データモデル定義
 
 ## 2. コードスタイルとフォーマット
 
@@ -88,6 +86,7 @@ mypy app/              # 型チェック
 ### テスト規則
 - APIエンドポイントにはテスト必須
 - サービスレイヤーの重要な関数にはテスト必須
+- 特に連番生成機能のテストは重要
 - ファイル名: `test_*.py` または `*_test.py`
 - テスト関数: `test_*` プレフィックス
 
@@ -109,7 +108,7 @@ pytest -k test_name    # 特定テスト実行
 ### 環境変数
 ```bash
 GCP_REGION=local           # GoogleCloud 接続リージョン (ローカル実行時は`local`)
-GCS_KEYPATH=./config/service_account.json   # GCP サービスアカウント認証鍵
+GCP_KEYPATH=./config/service_account.json   # GCP サービスアカウント認証鍵
 GCS_BUCKET_IMAGE=bucket-name-image  # CloudStorage 変換画像ファイル格納バケット名
 GCS_BUCKET_WORKS=bucket-name-works  # CloudStorage 作業ファイル格納バケット名
 SIGN_URL_EXP=3600         # 発行URL有効時間(秒数)
@@ -135,7 +134,7 @@ docker run -p 8080:8080 pdf-bulk-converter  # Dockerコンテナ起動
 type(scope): description
 
 feat(upload): implement multi-file upload
-fix(converter): resolve memory leak during PDF processing
+fix(converter): resolve sequential numbering issue  
 docs(api): update API documentation
 refactor(services): optimize JPEG conversion
 test(api): add upload endpoint tests
@@ -146,7 +145,7 @@ chore(deps): update FastAPI to latest version
 
 ### PRタイトル形式
 - `[feat] ファイル分割アップロード機能の実装`
-- `[fix] 日本語ファイル名の文字化け問題を解決`
+- `[fix] 連番ファイル名生成の問題を解決`
 
 ### PR説明テンプレート
 ```markdown
@@ -182,11 +181,14 @@ chore(deps): update FastAPI to latest version
 - OpenAPIドキュメント自動生成
 - 適切なHTTPステータスコード使用
 
-### ファイル処理
+### ファイル処理と連番管理
 - 一時ファイルの適切な管理
 - ストリーミング処理による大容量ファイル対応
 - PyMuPDF による効率的なPDF処理
-- ファイル命名の一貫性維持
+- **重要**: 連番ファイル名生成の一貫性維持
+  - 7桁ゼロ埋め形式（0000001.jpeg）
+  - セッション状態での連番管理
+  - 開始番号の正確な反映
 
 ### セキュリティ
 - ファイル形式のバリデーション
@@ -197,7 +199,6 @@ chore(deps): update FastAPI to latest version
 ### パフォーマンス
 - 非同期処理による並列化
 - Server-Sent Eventsによるリアルタイム通知
-- ストリーミングZIP生成によるメモリ効率
 - 不要な一時ファイルの適切な削除
 
 ### エラーハンドリング
@@ -206,7 +207,49 @@ chore(deps): update FastAPI to latest version
 - クライアントへのエラー伝達
 - 詳細なログ記録
 
-## 8. レビューチェックリスト
+## 8. 重要な実装詳細
+
+### 連番ファイル名生成のロジック
+- `session_status_manager.get_imagenum(session_id)` で開始番号を取得
+- `page_num` (0から開始) と開始番号を加算
+- `f"{imagenum_current:07d}.{format}"` で7桁ゼロ埋めファイル名生成
+- 各PDF処理後に `session_status_manager.add_imagenum()` で連番を更新
+
+### 変換処理フロー
+1. セッション開始時に開始番号を設定
+2. PDFアップロード
+3. `convert_pdfs_to_images()` で一括変換開始
+4. `convert_1pdf_to_images()` で個別PDF処理
+5. 各ページごとに連番ファイル名生成・保存
+6. セッション状態の連番カウンタ更新
+
+### 状態管理の重要な注意点
+- `SessionStatus`: セッション全体の状態管理
+- `JobStatus`: 個別ジョブの進捗管理
+- `session_status_manager`: セッション状態とファイル連番の管理
+- **重要**: 状態更新時に `image_num=0` を設定しない
+  - エラー処理でも現在の開始番号を保持する
+  - `notify_upload_complete` 等で既存の開始番号を維持する
+
+## 9. デバッグとトラブルシューティング
+
+### デバッグログの活用
+- セッション状態の詳細ログを確認
+- 連番生成の計算過程を記録
+- PDF処理の各段階での状態チェック
+
+### 問題特定の手順
+1. **ログレベルの確認**: `logger.info` が出力されているか
+2. **セッション状態の確認**: `get_status()` の返り値をチェック
+3. **開始番号の追跡**: 各処理段階での `image_num` の値を確認
+4. **エラー処理の確認**: エラー時の状態保持が正しく動作しているか
+
+### 一般的なトラブルシューティング
+- Cloud Run のログを確認してエラーの詳細を特定
+- ローカル環境でのテスト実行による問題の再現
+- デバッグログを使用した処理フローの追跡
+
+## 10. レビューチェックリスト
 
 ### Python 特有の確認事項
 - [ ] 型ヒントが適切に設定されている
@@ -220,11 +263,15 @@ chore(deps): update FastAPI to latest version
 - [ ] 適切な HTTP メソッド使用
 - [ ] 非同期処理が効率的に実装されている
 
-### ファイル処理
+### ファイル処理と連番生成
 - [ ] 一時ファイルが適切に管理されている
 - [ ] 大きなファイルでもメモリ効率よく処理されている
 - [ ] ファイルパスのサニタイゼーションが実施されている
 - [ ] 日本語ファイル名が正しく処理されている
+- [ ] **重要**: 連番ファイル名が正しく生成されている
+- [ ] **重要**: 開始番号が正確に反映されている
+- [ ] **重要**: セッション状態の連番管理が適切に動作している
+- [ ] **重要**: エラー処理で開始番号が保持されている
 
 ### セキュリティ
 - [ ] アップロードファイルの検証が実装されている
@@ -234,5 +281,57 @@ chore(deps): update FastAPI to latest version
 
 ### テスト
 - [ ] 重要なファイル処理ロジックにテストがある
+- [ ] **重要**: 連番生成機能のテストがある
 - [ ] エラーケースがテストされている
 - [ ] 非同期関数が適切にテストされている
+
+## 11. よくある問題と解決策
+
+### 連番生成に関する問題
+
+#### 問題: 最初のファイルが0000000.jpegになる
+- **原因**: 状態更新時に `image_num=0` が設定されている（特に `notify_upload_complete` 関数）
+- **確認方法**: 
+  ```python
+  # セッション状態を確認
+  current_session_status = session_status_manager.get_status(session_id)
+  logger.info(f"Current session status image_num: {current_session_status.image_num}")
+  ```
+- **解決策**: 
+  ```python
+  # 現在の状態を取得して開始番号を保持
+  current_session_status = session_status_manager.get_status(session_id)
+  start_image_num = current_session_status.image_num if current_session_status else 0
+  
+  # StatusStatus作成時にstart_image_numを使用
+  SessionStatus(
+      # ...
+      image_num=start_image_num,  # 0ではなく現在の番号を保持
+      # ...
+  )
+  ```
+
+#### 問題: セッション間でファイル番号が重複する
+- **原因**: セッション状態が適切に管理されていない
+- **解決**: セッション初期化時の `image_num` 設定を確認
+
+#### 問題: エラー後に連番がリセットされる
+- **原因**: エラー処理で `image_num=0` を設定している
+- **解決**: エラー処理でも現在の開始番号を保持する
+
+### PDFの変換処理
+- **問題**: 大きなPDFで処理が止まる
+- **原因**: メモリ不足またはタイムアウト
+- **解決**: ページ単位での処理と適切なエラーハンドリング
+
+### ログ分析のポイント
+- セッション初期化時の `image_num` 値
+- `notify_upload_complete` での状態更新
+- `convert_1pdf_to_images` での開始番号取得
+- 各ページ処理時の連番計算
+
+### Cloud Run 特有の問題
+- **問題**: ログが途切れる
+- **解決**: Cloud Run のログを時系列で確認し、処理の流れを追跡
+
+この知識を活用して、連番ファイル名生成機能の品質を維持し、問題の早期発見・解決を図ってください。

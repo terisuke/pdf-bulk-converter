@@ -138,6 +138,11 @@ async def convert_and_notify(session_id: str, job_ids: List[str], dpi: int = 300
         if not local_pdf_paths:
             error_message = "変換するPDFファイルが見つかりませんでした"
             logger.error(error_message)
+            
+            # 現在のセッション状態を取得して開始番号を保持
+            current_session_status = session_status_manager.get_status(session_id)
+            start_image_num = current_session_status.image_num if current_session_status else 0
+            
             session_status_manager.update_status(
                 session_id,
                 SessionStatus(
@@ -146,7 +151,7 @@ async def convert_and_notify(session_id: str, job_ids: List[str], dpi: int = 300
                     message=error_message,
                     progress=0,
                     pdf_num=0,
-                    image_num=0,
+                    image_num=start_image_num,  # 開始番号を保持
                     created_at=datetime.now()
                 )
             )
@@ -159,6 +164,11 @@ async def convert_and_notify(session_id: str, job_ids: List[str], dpi: int = 300
     except Exception as e:
         error_message = f"PDF変換中にエラーが発生しました: {str(e)}"
         logger.error(error_message)
+        
+        # 現在のセッション状態を取得して開始番号を保持
+        current_session_status = session_status_manager.get_status(session_id)
+        start_image_num = current_session_status.image_num if current_session_status else 0
+        
         session_status_manager.update_status(
             session_id,
             SessionStatus(
@@ -167,7 +177,7 @@ async def convert_and_notify(session_id: str, job_ids: List[str], dpi: int = 300
                 message=error_message,
                 progress=0,
                 pdf_num=0,
-                image_num=0,
+                image_num=start_image_num,  # 開始番号を保持
                 created_at=datetime.now()
             )
         )
@@ -226,6 +236,10 @@ async def convert_and_notify_single(session_id: str, job_id: str, pdf_paths: Lis
             )
         )
         
+        # 現在のセッション状態を取得して開始番号を保持
+        current_session_status = session_status_manager.get_status(session_id)
+        start_image_num = current_session_status.image_num if current_session_status else 0
+        
         session_status_manager.update_status(
             session_id, 
             SessionStatus(
@@ -234,7 +248,7 @@ async def convert_and_notify_single(session_id: str, job_id: str, pdf_paths: Lis
                 message=f"PDF変換中にエラーが発生しました: {str(e)}",
                 progress=0,
                 pdf_num=0,
-                image_num=0,
+                image_num=start_image_num,  # 開始番号を保持
                 created_at=datetime.now()
             )
         )
@@ -586,6 +600,10 @@ async def notify_upload_complete(
     try:
         logger.info(f"Upload complete notification received for session: {session_id}")
         
+        # 現在のセッション状態を取得して開始番号を保持
+        current_session_status = session_status_manager.get_status(session_id)
+        start_image_num = current_session_status.image_num if current_session_status else 0
+        
         session_status_manager.update_status(
             session_id,
             SessionStatus(
@@ -594,7 +612,7 @@ async def notify_upload_complete(
                 message="PDFファイルの変換を開始します",
                 progress=20.0,
                 pdf_num=len(request.job_ids),
-                image_num=0,
+                image_num=start_image_num,  # 開始番号を保持
                 created_at=datetime.now()
             )
         )

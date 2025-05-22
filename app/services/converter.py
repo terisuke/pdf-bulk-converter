@@ -76,57 +76,56 @@ async def convert_1pdf_to_images(session_id: str, job_id: str, pdf_path: str, dp
             return images_dir, []
             
         logger.info(f"Opening PDF file: {pdf_path}")
-        pdf_document = fitz.open(pdf_path)
-        total_pages = len(pdf_document)
         image_paths = []
 
         imagenum_start = session_status_manager.get_imagenum(session_id)
-        logger.info(f"Starting image number: {imagenum_start}, total pages: {total_pages}")
         
-        # 各ページを画像に変換
-        for page_num in range(total_pages):
-            page = pdf_document[page_num]
-            pix = page.get_pixmap(matrix=fitz.Matrix(dpi/72, dpi/72))
+        with fitz.open(pdf_path) as pdf_document:
+            total_pages = len(pdf_document)
+            logger.info(f"Starting image number: {imagenum_start}, total pages: {total_pages}")
             
-            # 画像ファイル名を生成
-            imagenum_current = imagenum_start + page_num
-            image_filename = f"{imagenum_current:07d}.{format}"
-            image_path = os.path.join(images_dir, image_filename)
+            # 各ページを画像に変換
+            for page_num in range(total_pages):
+                page = pdf_document[page_num]
+                pix = page.get_pixmap(matrix=fitz.Matrix(dpi/72, dpi/72))
+                
+                # 画像ファイル名を生成
+                imagenum_current = imagenum_start + page_num
+                image_filename = f"{imagenum_current:07d}.{format}"
+                image_path = os.path.join(images_dir, image_filename)
+                
+                logger.info(f"Rendering page {page_num+1}/{total_pages} to {image_path}")
+                
+                # 画像を保存
+                pix.save(image_path)
+                image_paths.append(image_path)
+                
+                if settings.gcp_region != "local" and gcs_client is not None:
+                    try:
+                        logger.info(f"Uploading image to GCS_BUCKET_IMAGE: {settings.gcs_bucket_image}/{session_id}/{image_filename}")
+                        
+                        bucket = gcs_client.bucket(settings.gcs_bucket_image)
+                        blob = bucket.blob(f"{session_id}/{image_filename}")  # セッションIDを含める
+                        
+                        blob.upload_from_filename(image_path)
+                        logger.info(f"Successfully uploaded image to GCS: {settings.gcs_bucket_image}/{session_id}/{image_filename}")
+                    except Exception as e:
+                        error_msg = f"Failed to upload image to GCS: {str(e)}"
+                        logger.error(error_msg)
+                
+                # 進捗を更新
+                progress = (page_num + 1) / total_pages * 100
+                status = JobStatus(
+                    session_id=session_id,
+                    job_id=job_id,
+                    status="processing",
+                    message=f"ページ変換完了: {page_num + 1}/{total_pages}",
+                    progress=progress,
+                    created_at=datetime.now()
+                )
+                job_status_manager.update_status(job_id, status)
             
-            logger.info(f"Rendering page {page_num+1}/{total_pages} to {image_path}")
-            
-            # 画像を保存
-            pix.save(image_path)
-            image_paths.append(image_path)
-            
-            if settings.gcp_region != "local" and gcs_client is not None:
-                try:
-                    logger.info(f"Uploading image to GCS_BUCKET_IMAGE: {settings.gcs_bucket_image}/{image_filename}")
-                    
-                    bucket = gcs_client.bucket(settings.gcs_bucket_image)
-                    blob = bucket.blob(f"{image_filename}")  # セッションIDとジョブIDを含めない
-                    
-                    blob.upload_from_filename(image_path)
-                    logger.info(f"Successfully uploaded image to GCS: {settings.gcs_bucket_image}/{image_filename}")
-                except Exception as e:
-                    error_msg = f"Failed to upload image to GCS: {str(e)}"
-                    logger.error(error_msg)
-            
-            # 進捗を更新
-            progress = (page_num + 1) / total_pages * 100
-            status = JobStatus(
-                session_id=session_id,
-                job_id=job_id,
-                status="processing",
-                message=f"ページ変換完了: {page_num + 1}/{total_pages}",
-                progress=progress,
-                created_at=datetime.now()
-            )
-            job_status_manager.update_status(job_id, status)
-        
-        # PDFを閉じる
-        session_status_manager.add_imagenum(session_id, total_pages)
-        pdf_document.close()
+            session_status_manager.add_imagenum(session_id, total_pages)
         
         logger.info(f"PDF conversion completed: {pdf_path} -> {len(image_paths)} images")
         return images_dir, image_paths
@@ -167,8 +166,16 @@ async def convert_pdfs_to_images(session_id: str, job_id: str, pdf_paths: List[s
         logger.info(f"複数PDF変換開始: session_id={session_id}, job_id={job_id}, pdf_count={len(pdf_paths)}, dpi={dpi}")
         
         # 出力ディレクトリの作成
-        images_dir = os.path.join(settings.get_session_dirpath(session_id), "images")
-        os.makedirs(images_dir, exist_ok=True)
+        session_dirpath = settings.get_session_dirpath(session_id)
+        images_dir = os.path.join(session_dirpath, "images")
+        logger.info(f"画像出力ディレクトリ: {images_dir}, セッションディレクトリ: {session_dirpath}")
+        
+        try:
+            os.makedirs(images_dir, exist_ok=True)
+            logger.info(f"画像ディレクトリ作成完了: {images_dir}")
+        except Exception as e:
+            logger.error(f"画像ディレクトリ作成エラー: {str(e)}, パス: {images_dir}")
+            raise
         
         if start_number is not None:
             logger.info(f"Setting starting image number to: {start_number}")
@@ -180,6 +187,7 @@ async def convert_pdfs_to_images(session_id: str, job_id: str, pdf_paths: List[s
         # 各PDFファイルを処理
         total_files = len(pdf_paths)
         for i, pdf_path in enumerate(pdf_paths, 1):
+            logger.info(f"PDFファイル処理開始 ({i}/{total_files}): {pdf_path}")
             # PDFファイルを処理
             _, image_paths = await convert_1pdf_to_images(session_id, job_id, pdf_path, dpi, format, images_dir)
             all_image_paths.extend(image_paths)

@@ -32,7 +32,7 @@ else:
         raise FileNotFoundError(f"GCP key file not found: {settings.gcp_keypath}") from exc
     except Exception as e:
         logging.error(f"Failed to initialize GCS client: {str(e)}")
-        raise RuntimeError(f"Failed to initialize GCS client: {str(e)}")
+        raise RuntimeError(f"Failed to initialize GCS client: {str(e)}") from e
 
 def generate_session_url() -> tuple[str, str]:
     session_id = str(uuid.uuid4())
@@ -76,7 +76,7 @@ def generate_upload_url(filename: str, session_id: str, content_type: str = "") 
             url = blob.generate_signed_url(
                 version="v4",
                 expiration=settings.sign_url_exp,
-                method="PUT",
+                method="POST",
                 content_type=content_type
             )
             logger.info(f"Generated signed URL for upload: {session_id}/{job_id}/{safe_filename}")

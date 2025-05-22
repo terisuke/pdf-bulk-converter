@@ -56,3 +56,4 @@ class NotifyUploadCompleteRequest(BaseModel):
     format: str = "jpeg"
     max_retries: int = 3  # リトライ回数の最大値
     start_number: Optional[int] = None  # 連番開始番号                
+

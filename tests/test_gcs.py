@@ -64,7 +64,7 @@ def main():
             raise
         
         try:
-            test_file_path = "test/test.pdf"
+            test_file_path = "../test/test.pdf"
             if os.path.exists(test_file_path):
                 blob = bucket_works.blob("test_upload/test.pdf")
                 blob.upload_from_filename(test_file_path)

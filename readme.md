@@ -1,14 +1,15 @@
 # PDF Bulk Converter
 
-高画質 PDF → JPEG変換 & ZIP ダウンロードを提供するブラウザアプリケーションの README です。
+高画質 PDF → JPEG変換を提供するブラウザアプリケーションのREADMEです。
 
 ---
 
 ## 🎯 目的
 
-* **データセット作成向け**: 高解像度 (DPI 指定可能) なJPEG画像を一括生成。
-* **非同期処理**: ユーザー待ち時間を最小化し、大容量 PDF でも処理落ちしない。
-* **シンプルな構成**: FastAPI + PyMuPDF で実装。
+* **データセット作成向け**: 高解像度（DPI指定可能）なJPEG画像を一括生成
+* **連番ファイル対応**: 開始番号を指定して連続した番号付けで画像を生成
+* **非同期処理**: ユーザー待ち時間を最小化、大容量PDFでも処理落ちしない
+* **シンプルな構成**: FastAPI + PyMuPDF で実装
 
 ---
 
@@ -17,10 +18,9 @@
 | # | 機能           | 説明                                             |
 |---|----------------|------------------------------------------------|
 | 1 | PDF アップロード     | ブラウザ UI から複数 PDF を選択してアップロード                 |
-| 2 | ZIP アップロード     | 複数 PDF を含む ZIP ファイルをアップロードし、自動展開・一括変換 |
+| 2 | 連番ファイル名生成   | 指定した開始番号から7桁ゼロ埋めの連番でファイル名を生成 |
 | 3 | 非同期変換処理 | `PyMuPDF` でページ並列レンダリング                         |
-| 4 | ストリーミング ZIP    | 画像生成と同時に ZIP 書き込み                        |
-| 5 | リアルタイム進捗通知 | Server‑Sent Events (SSE) でリアルタイム進捗バー更新       |
+| 4 | リアルタイム進捗通知 | Server‑Sent Events (SSE) でリアルタイム進捗バー更新       |
 
 ---
 
@@ -33,7 +33,6 @@
   * uvicorn: 0.27.1
   * python-multipart: 0.0.9
   * python-dotenv: 1.0.1
-  * zipstream: 1.1.4 – ストリーミング ZIP  
   * pydantic: 2.6.1 – データバリデーション
   * pydantic-settings: 2.1.0 – 設定管理
   * jinja2: 3.1.3 – テンプレートエンジン
@@ -61,10 +60,11 @@
 pdf-bulk-converter/
 ├── app/                          # FastAPIアプリケーション
 │   ├── api/                      # APIエンドポイント
-│   │   └── upload.py            # アップロード関連・ジョブステータス・ダウンロード関連
+│   │   └── upload.py            # アップロード関連・ジョブステータス
 │   ├── core/                    # コア機能
 │   │   ├── config.py           # 設定管理
 │   │   ├── job_status.py       # ジョブ状態管理
+│   │   ├── process.py          # 処理ロジック
 │   │   └── session_status.py   # セッション状態管理
 │   ├── services/               # ビジネスロジック
 │   │   ├── converter.py       # PDF変換処理
@@ -73,20 +73,18 @@ pdf-bulk-converter/
 │   │   └── cleanup.py         # クリーンアップ処理
 │   ├── models/                 # データモデル
 │   │   └── schemas.py         # Pydanticモデル
+│   ├── static/                # アプリケーション固有の静的ファイル
+│   │   └── js/
+│   │       └── main.js        # アプリケーション固有のJS
 │   └── main.py                 # アプリケーションエントリーポイント
-├── static/                    # グローバルな静的ファイル
-│   ├── css/                  # スタイルシート
-│   └── js/                   # フロントエンドスクリプト
-├── templates/                 # HTMLテンプレート
-├── tmp_workspace/            # 作業用スペース
-├── uploads/                  # アップロードされたファイル
-├── output/                   # 出力ファイル
-├── local_storage/            # ローカルストレージ
-├── .env                      # 環境変数
-├── .gitignore                # Git除外設定
-├── Dockerfile                # コンテナ設定
-├── requirements.txt          # Python依存関係
-└── README.md                 # プロジェクト説明
+├── config/                     # 設定ファイル
+│   └── service_account.json    # GCPサービスアカウント認証情報
+├── local_storage/              # ローカルストレージ
+├── .env                        # 環境変数
+├── .gitignore                  # Git除外設定
+├── Dockerfile                  # コンテナ設定
+├── requirements.txt            # Python依存関係
+└── README.md                   # プロジェクト説明
 ```
 
 ### 配置ルール
@@ -95,8 +93,7 @@ pdf-bulk-converter/
 - データモデル → `app/models/`
 - 設定関連 → `app/core/`
 - アプリケーション固有の静的ファイル → `app/static/`
-- グローバルな静的ファイル → `static/`
-- HTMLテンプレート → `templates/`
+- 作業用ファイル → `local_storage/`
 
 ---
 
@@ -104,15 +101,15 @@ pdf-bulk-converter/
 
 ```text
 [Browser]
-  │ 1. File Upload
+  │ 1. File Upload & Start Number Setting
   ▼
 [FastAPI Server]
   │
-  ├─ 2. PDF Processing
+  ├─ 2. PDF Processing with Sequential Numbering
   │   └─ JPEG変換 (PyMuPDF)
   │
   └─ 3. Progress Updates (SSE)
-      └─ 4. ZIP Download
+      └─ 4. Images with Sequential Filenames (0000001.jpeg, 0000002.jpeg, ...)
 ```
 
 ---
@@ -126,9 +123,7 @@ pdf-bulk-converter/
 | `GET`  | `/api/session-status/{session_id}`   | SSE でセッション進捗をリアルタイムに返す |
 | `GET`  | `/api/job-status/{job_id}`   | SSE でジョブ進捗をリアルタイムに返す |
 | `POST` | `/api/local-upload/{session_id}/{job_id}/{filename}` | PDFファイルアップロード (ローカル用) |
-| `POST` | `/api/create-zip/{session_id}` | ZIPファイル作成 |
-| `GET`  | `/api/download/{session_id}` | 変換済みZIPファイルダウンロード用URLを取得 |
-| `GET`  | `/local-download/{session_id}/{filename}` | ローカル環境でのZIPファイルダウンロード |
+| `POST` | `/api/notify-upload-complete/{session_id}` | アップロード完了通知とPDF変換開始 |
 | `PUT`  | `/api/session-update/{session_id}` | セッションのステータスを更新 |
 
 ---
@@ -181,32 +176,16 @@ $ cp .env.example .env  # または既存の.envファイルを確認・編集
 $ uvicorn app.main:app --reload
 ```
 
-### インストール時の注意点
-- Python 3.11以上が必要です（セットアップスクリプトで自動対応）
-- `setup.sh`を実行すると、Pythonのバージョンが自動的にチェックされます
-  - Python 3.11以上が利用可能な場合はそのまま使用
-  - 3.11未満の場合は自動的に`setup_with_pyenv.sh`が実行され、pyenvを使用して適切なPythonバージョンがインストールされます
-- PyMuPDFのインストールには、システムにMuPDFライブラリが必要な場合があります（セットアップスクリプトで自動インストールします）
+---
 
-### トラブルシューティング 🚨
+## 💡 使用方法
 
-#### 自動設定がうまくいかない場合 🔄
-  - `python --version` で現在のバージョンを確認
-  - `which python` で使用しているPythonの場所を確認
-
-#### 環境変数の問題 🌐
-  - `.env` ファイルが正しく設定されているか確認
-  - 必要に応じて `.env.example` を参考に `.env` ファイルを作成・編集
-
-#### PyMuPDFのインストール問題 📦
-  - macOS: `brew install mupdf`
-  - Ubuntu: `apt-get install libmupdf-dev`
-  - Windows: Microsoft Visual C++ Redistributableのインストールが必要な場合があります
-
-#### その他 🤔
-  - 仮想環境の作成に失敗する場合: `python -m venv venv --clear` を試してください
-  - 環境変数`GCP_REGION`変更後に切替が上手くいかない場合は:
-    - `unset GCP_REGION` を実行してから再試行
+1. **セッション開始**: `/api/session` に開始番号（例：100）を指定してPOSTリクエスト
+2. **ファイルアップロード**: 取得したセッションIDでPDFファイルをアップロード  
+3. **変換処理**: アップロード完了後、自動的にPDF → JPEG変換が開始
+4. **ファイル名規則**: 指定した開始番号から連番で生成
+   - 開始番号100の場合: `0000100.jpeg`, `0000101.jpeg`, `0000102.jpeg`...
+   - 7桁ゼロ埋めで統一された連番ファイル名
 
 ---
 
@@ -222,14 +201,75 @@ $ uvicorn app.main:app --reload
 
 ---
 
+## 🔧 トラブルシューティング
+
+### セットアップ関連 🚨
+
+#### 自動設定がうまくいかない場合 🔄
+- `python --version` で現在のバージョンを確認
+- `which python` で使用しているPythonの場所を確認
+
+#### 環境変数の問題 🌐
+- `.env` ファイルが正しく設定されているか確認
+- 必要に応じて `.env.example` を参考に `.env` ファイルを作成・編集
+
+#### PyMuPDFのインストール問題 📦
+- macOS: `brew install mupdf`
+- Ubuntu: `apt-get install libmupdf-dev`
+- Windows: Microsoft Visual C++ Redistributableのインストールが必要な場合があります
+
+### 機能関連 📱
+
+#### 連番が期待通りにならない場合 🔢
+- **問題**: 開始番号を指定しても最初のファイルが `0000000.jpeg` になる
+- **原因**: 状態更新時に `image_num=0` が設定されている
+- **解決手順**:
+  1. ブラウザのデベロッパーツールでAPIレスポンスを確認
+  2. サーバーログで `Starting image number` のログを確認
+  3. `notify_upload_complete` 関数でのセッション状態更新を確認
+
+#### 変換が完了しない場合 🔄
+- ブラウザのコンソールでエラーログを確認
+- サーバーログで変換処理の状況を確認
+- PDFファイルが破損していないか確認
+
+#### Cloud Run でのログ確認方法 ☁️
+```bash
+# 最新のログを確認
+$ gcloud logging read "resource.type=cloud_run_revision" --limit=50
+
+# 特定のセッションのログを確認
+$ gcloud logging read "resource.type=cloud_run_revision AND textPayload:session_id" --limit=20
+```
+
+### デバッグ時のチェックポイント 🔍
+
+#### 連番生成のデバッグ
+1. **セッション初期化時**: `image_num=request.start_number` が設定されているか
+2. **アップロード完了通知時**: 現在の開始番号が保持されているか
+3. **変換処理開始時**: `session_status_manager.get_imagenum()` が正しい値を返しているか
+4. **ファイル名生成時**: `imagenum_start + page_num` の計算が正しいか
+
+#### 一般的なエラーパターン
+- **`image_num=0` が設定される箇所**: エラー処理や状態更新で注意
+- **セッション状態がNone**: セッション管理の初期化エラー
+- **PDF読み込み失敗**: ファイルパスやアクセス権限の問題
+
+---
+
 ## 📝 最近の更新
 
-### 2025-05-22
-- ✅ README.mdを更新
-  - 実際のプロジェクト構造と一致するように修正
-  - API仕様の記述を正確に修正
-  - 環境変数の設定手順を明確化
-  - その他、誤記や不正確な情報を修正
+### 2025-05-22 ⚡
+- ✅ **連番ファイル名生成の重要な修正を完了**
+  - `notify_upload_complete` 関数で `image_num=0` が設定されていた問題を解決
+  - エラー処理時にも開始番号を保持するように修正
+  - デバッグログを追加して問題の特定を容易化
+- ✅ **状態管理の改善**
+  - セッション状態更新時の開始番号保持を徹底
+  - エラー処理での連番リセット問題を解決
+- ✅ **ドキュメント更新**
+  - 実際の問題解決経験を反映したトラブルシューティングガイドを追加
+  - 具体的なデバッグ手順とチェックポイントを記載
 
 ### 2025-04-26
 - ✅ ダウンロードボタンの表示問題を修正
@@ -268,4 +308,3 @@ MIT License
 * Twitter: https://twitter.com/cor_terisuke
 
 ---
-

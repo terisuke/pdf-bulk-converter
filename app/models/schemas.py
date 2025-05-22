@@ -3,7 +3,7 @@ from typing import Optional, List
 from datetime import datetime
 
 class SessionRequest(BaseModel):
-    start_number: Optional[int] = 1  # 連番開始番号
+    start_number: Optional[int] = None  # 連番開始番号（未指定の場合は自動計算）
 
 class UploadRequest(BaseModel):
     session_id: str
@@ -22,7 +22,7 @@ class UploadResponse(BaseModel):
 
 class SessionStatus(BaseModel):
     session_id: str
-    status: str     # "uploading", "converting", "zipping", "completed", "failed"
+    status: str     # "uploading", "converting", "completed", "failed"
     message: str
     progress: float
     pdf_num: int
@@ -32,16 +32,12 @@ class SessionStatus(BaseModel):
 class JobStatus(BaseModel):
     session_id: str
     job_id: str
-    status: str     # "pending", "processing", "converted", "completed", "failed"
+    status: str     # "pending", "processing", "completed", "failed"
     progress: float
     created_at: datetime
     completed_at: Optional[datetime] = None
     error: Optional[str] = None
     message: Optional[str] = None
-
-class DownloadResponse(BaseModel):
-    download_url: str
-    expires_at: datetime
 
 class SessionStatusUpdateRequest(BaseModel):
     status: str

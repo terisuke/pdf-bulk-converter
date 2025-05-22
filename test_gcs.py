@@ -79,7 +79,7 @@ def main():
         
     except Exception as e:
         logger.error(f"Test failed: {str(e)}")
-        raise
+        raise RuntimeError(f"Test failed: {str(e)}") from e
 
 if __name__ == "__main__":
     main()

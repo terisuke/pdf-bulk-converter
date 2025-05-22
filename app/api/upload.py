@@ -1,10 +1,9 @@
 from fastapi import APIRouter, HTTPException, UploadFile, File
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
-from app.models.schemas import UploadRequest, SessionRequest, SessionResponse, UploadResponse, SessionStatus, JobStatus, DownloadResponse, NotifyUploadCompleteRequest
+from app.models.schemas import UploadRequest, SessionRequest, SessionResponse, UploadResponse, SessionStatus, JobStatus, NotifyUploadCompleteRequest
 from app.services.storage import (
     generate_session_url,
     generate_upload_url,
-    generate_download_url,
     get_next_image_number,
 )
 import os
@@ -416,15 +415,13 @@ async def local_upload(
             # アップロード済みのファイル数をカウント
             uploaded_files = [f for f in os.listdir(settings.get_storage_path(session_id, job_id)) 
                             if f.lower().endswith('.pdf')]
-                            # if f.lower().endswith(('.pdf', '.zip'))]
             
             # すべてのファイルがアップロードされた場合、変換処理を開始
             if len(uploaded_files) == len(pending_files[job_id]):
                 # 保存されたファイルのパスを取得
                 file_paths = [os.path.join(settings.get_storage_path(session_id, job_id), f) for f in uploaded_files]
                 
-                # ZIPファイルとPDFファイルを分離
-                zip_files = [f for f in file_paths if f.lower().endswith('.zip')]
+                # PDFファイルを処理
                 pdf_files = [f for f in file_paths if f.lower().endswith('.pdf')]
                 
                 if pdf_files:
@@ -436,25 +433,6 @@ async def local_upload(
                         dpi=pending_files[job_id][0].get('dpi', 300),
                         format=pending_files[job_id][0].get('format', 'jpg')
                     )
-
-                # TODO: 個数に依らずzip自体を一旦保留
-                # # バックグラウンドで変換処理を開始
-                # if zip_files:
-                #     if len(zip_files) == 1:
-                #         background_tasks.add_task(
-                #             process_zip,
-                #             job_id=job_id,
-                #             zip_path=zip_files[0],
-                #             dpi=pending_files[job_id][0].get('dpi', 300)
-                #         )
-                #     # TODO: zipが複数時の対応 (process_zipが複数zipファイル未対応)
-                #     # else: 
-                #     #     background_tasks.add_task(
-                #     #         process_zips,
-                #     #         job_id=job_id,
-                #     #         zip_paths=zip_files,
-                #     #         dpi=pending_files[job_id][0].get('dpi', 300)
-                #     #     )
                 
                 # 処理済みのファイル情報を削除
                 del pending_files[job_id]
@@ -476,123 +454,6 @@ async def local_upload(
             status_code=500,
             detail=f"ファイルのアップロード中にエラーが発生しました: {str(e)}"
         )
-    
-# @router.post("/create-zip/{session_id}")
-# async def create_zip(session_id: str):
-#     try:
-#         # HACK: 画像ディレクトリがセッション配下images固定状態。できればconvert_pdfs_to_imagesの戻り値を受け取りたい
-#         session_dirpath = settings.get_session_dirpath(session_id)
-#         images_dirpath = os.path.join(session_dirpath, "images")
-#         logger.info(f"Creating ZIP for session: {session_id}, looking for images in: {images_dirpath}")
-#         
-#         if not os.path.exists(images_dirpath):
-#             error_msg = f"画像ディレクトリがありません: {images_dirpath}"
-#             logger.error(error_msg)
-#             
-#             session_status_manager.update_status(
-#                 session_id, 
-#                 SessionStatus(
-#                     session_id=session_id,
-#                     status="error",
-#                     message=error_msg,
-#                     progress=0,
-#                     pdf_num=0,
-#                     image_num=0,
-#                     created_at=datetime.now()
-#                 )
-#             )
-#             
-#             raise HTTPException(status_code=404, detail="Image directory not found")
-#         
-#         # 画像ファイルの完全なパスを取得
-#         image_files = [f for f in os.listdir(images_dirpath) if f.lower().endswith(('.jpg', '.jpeg', '.png', '.gif'))]
-#         logger.info(f"Found {len(image_files)} image files in {images_dirpath}")
-#         
-#         if not image_files:
-#             error_msg = f"画像ファイルがありません: {images_dirpath}"
-#             logger.error(error_msg)
-#             
-#             session_status_manager.update_status(
-#                 session_id, 
-#                 SessionStatus(
-#                     session_id=session_id,
-#                     status="error",
-#                     message=error_msg,
-#                     progress=0,
-#                     pdf_num=0,
-#                     image_num=0,
-#                     created_at=datetime.now()
-#                 )
-#             )
-#             
-#             raise HTTPException(status_code=404, detail="No image files found")
-#         
-#         image_paths = [os.path.join(images_dirpath, f) for f in image_files]
-#         logger.info(f"Creating ZIP file with {len(image_paths)} images")
-#         
-#         session_status_manager.update_status(
-#             session_id, 
-#             SessionStatus(
-#                 session_id=session_id,
-#                 status="zipping",
-#                 message="ZIP作成中...",
-#                 progress=50,
-#                 pdf_num=0,
-#                 image_num=len(image_paths),
-#                 created_at=datetime.now()
-#             )
-#         )
-#         
-#         # create_zip_file関数はコメントアウトされているため、この行も実行されない
-#         # zip_path = create_zip_file(session_id, image_paths)
-#         
-#         if not zip_path:
-#             error_msg = "ZIP作成に失敗しました"
-#             logger.error(error_msg)
-#             raise HTTPException(status_code=500, detail="Failed to create ZIP file")
-#             
-#         logger.info(f"ZIP file created successfully: {zip_path}")
-#         return {"message": "ZIP file created successfully", "zip_path": zip_path}
-#         
-#     except Exception as e:
-#         error_msg = f"ZIP作成エラー: {str(e)}"
-#         logger.error(error_msg)
-#         logger.error(traceback.format_exc())  # スタックトレースを出力
-#         
-#         session_status_manager.update_status(
-#             session_id, 
-#             SessionStatus(
-#                 session_id=session_id,
-#                 status="error",
-#                 message=f"ZIP作成中にエラーが発生しました: {str(e)}",
-#                 progress=0,
-#                 pdf_num=0,
-#                 image_num=0,
-#                 created_at=datetime.now()
-#             )
-#         )
-#         
-#         raise HTTPException(status_code=500, detail=str(e))
-
-# @local_router.get("/local-download/{session_id}/{filename}")
-# async def local_download(session_id: str, filename: str):
-#     """ローカル環境でのファイルダウンロード用エンドポイント"""
-#     try:
-#         file_path = os.path.join(settings.get_session_dirpath(session_id), filename)
-#         logger.info(f"ダウンロード要求: {file_path}")
-#         
-#         if not os.path.exists(file_path):
-#             logger.error(f"ファイルが見つかりません: {file_path}")
-#             raise HTTPException(status_code=404, detail="File not found")
-#         
-#         return FileResponse(
-#             file_path,
-#             filename=filename,
-#             media_type="application/zip"
-#         )
-#     except Exception as e:
-#         logger.error(f"ダウンロードエラー: {str(e)}")
-#         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/notify-upload-complete/{session_id}")
 async def notify_upload_complete(
@@ -642,36 +503,6 @@ async def notify_upload_complete(
         logger.error(error_message)
         raise HTTPException(status_code=500, detail=error_message)
 
-# ダウンロードURL取得機能は不要になったため、コメントアウト
-# @router.get("/download/{session_id}", response_model=DownloadResponse)
-# async def get_download_url(session_id: str):
-#     """ダウンロード用のURLを取得"""
-#     try:
-#         status = session_status_manager.get_status(session_id)
-#         
-#         # # ジョブが完了していない場合はエラー
-#         # if status.status != "completed":
-#         #     raise HTTPException(status_code=400, detail="Job not completed yet")
-#         
-#         # ZIPファイル名を取得
-#         session_dirpath = settings.get_session_dirpath(session_id)
-#         # _images.zipで終わるファイルまたはall_pdfs_images.zipを検索
-#         zip_files = [f for f in os.listdir(session_dirpath) if f.endswith("_images.zip") or f == "all_pdfs_images.zip"]
-#         if not zip_files:
-#             raise HTTPException(status_code=404, detail="ZIP file not found")
-#         
-#         # ダウンロードURLを生成
-#         download_url = generate_download_url(session_id)
-#         expires_at = datetime.now() + timedelta(seconds=settings.sign_url_exp)
-#         
-#         return DownloadResponse(
-#             download_url=download_url,
-#             expires_at=expires_at
-#         )
-#     except Exception as e:
-#         logger.error(f"ダウンロードURL生成エラー: {str(e)}")
-#         raise HTTPException(status_code=500, detail=str(e))
-
 @router.put("/session-update/{session_id}")
 async def update_session_status(session_id: str, status_update: dict):
     """セッションのステータスを更新"""
@@ -695,4 +526,4 @@ async def update_session_status(session_id: str, status_update: dict):
         return {"message": "Session status updated successfully"}
     except Exception as e:
         logger.error(f"セッションステータス更新エラー: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
+        raise HTTPException(status_code=500, detail=str(e))

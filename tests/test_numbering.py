@@ -5,12 +5,11 @@ PDF Bulk Converter - 簡単な動作確認スクリプト
 このスクリプトは連番ファイル名生成機能が正しく動作するかを確認するためのものです。
 """
 
-import os
 import sys
 from pathlib import Path
 
 # プロジェクトのパスを追加
-project_root = Path(__file__).parent
+project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 from app.core.session_status import SessionStatusManager, SessionStatus

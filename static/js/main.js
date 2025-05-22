@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const downloadLink = document.getElementById('downloadLink');
 
     let currentSessionId = null;
-    let currentJobId = null;
+    let jobIds = []; // Store all job IDs
     let eventSource = null;
 
     uploadForm.addEventListener('submit', async (e) => {
@@ -82,7 +82,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 const urlData = await res_upload_job.json();
                 uploadUrl = urlData.upload_url;
-                if (i == 0) {currentJobId = urlData.job_id}
+                jobIds.push(urlData.job_id); // Store each job ID
 
                 // ファイルをアップロード
                 const fullUrl = uploadUrl.startsWith('/') ? 
@@ -101,49 +101,29 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            // アップロード完了後、セッションのステータスを"zipping"に更新
-            const updateSessionStatus = await fetch(`/api/session-update/${currentSessionId}`, {
-                method: 'PUT',
+            // アップロード完了をバックエンドに通知
+            
+            const notifyResponse = await fetch(`/api/notify-upload-complete/${currentSessionId}`, {
+                method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    status: 'zipping',
-                    progress: 90.0,
-                    message: 'ZIPファイルを作成中...'
+                    session_id: currentSessionId,
+                    job_ids: jobIds,
+                    dpi: parseInt(dpi),
+                    format: "jpeg",
+                    max_retries: 3
                 })
             });
-            if (!updateSessionStatus.ok) {
-                throw new Error('セッションステータスの更新に失敗しました');
-            }
-
-            // 変換完了後、ZIPファイルの生成をリクエスト
-            const zipResponse = await fetch(`/api/create-zip/${currentSessionId}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            });
-
-            if (!zipResponse.ok) {
-                throw new Error('ZIPファイルの生成に失敗しました');
-            }
-
-            // ZIPファイルの生成が完了するまで少し待機
-            // HACK: ひとまず1秒待ち。以前のPDF→画像変換と同様、完了を検知して制御するようにしたい
-            await new Promise(resolve => setTimeout(resolve, 1000));
-
-            // ダウンロードURLを取得
-            const downloadResponse = await fetch(`/api/download/${currentSessionId}`);
             
-            if (downloadResponse.ok) {
-                const downloadData = await downloadResponse.json();
-                downloadLink.href = downloadData.download_url;
-                progressDiv.classList.add('hidden');
-                resultDiv.classList.remove('hidden');
-            } else {
-                progressText.textContent = '変換は完了しましたが、ダウンロードURLの取得に失敗しました。';
+            if (!notifyResponse.ok) {
+                throw new Error('アップロード完了通知に失敗しました');
             }
+
+            // アップロード完了後、変換処理の完了を待つ（変換完了はSSEで通知される）
+            progressText.textContent = 'PDFファイルをアップロードしました。変換処理が完了するまでお待ちください...';
+            
         } catch (error) {
             console.error('Error:', error);
             alert('エラーが発生しました: ' + error.message);
@@ -159,9 +139,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (status === 'completed') {
             eventSource.close();
+            progressDiv.classList.add('hidden');
+            resultDiv.classList.remove('hidden');
+            downloadLink.style.display = 'none';
+            document.querySelector('#result p').textContent = '変換が完了しました。画像はGCS_BUCKET_IMAGEに保存されました。';
         } else if (status === 'error') {
             eventSource.close();
             alert('エラーが発生しました: ' + message);
         }
     }
-});                    
+});                                                                                                                        

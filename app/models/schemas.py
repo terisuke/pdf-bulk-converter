@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 
 class SessionRequest(BaseModel):
@@ -47,3 +47,11 @@ class SessionStatusUpdateRequest(BaseModel):
     status: str
     message: Optional[str] = None
     progress: Optional[float] = None 
+
+class NotifyUploadCompleteRequest(BaseModel):
+    """アップロード完了通知リクエスト"""
+    session_id: str
+    job_ids: List[str]  # 各ファイルに対応するジョブID
+    dpi: int = 300
+    format: str = "jpeg"
+    max_retries: int = 3  # リトライ回数の最大値    

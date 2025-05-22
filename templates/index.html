@@ -69,11 +69,13 @@
         <h2 class="text-xl font-semibold mb-4">変換完了</h2>
         <div class="space-y-4">
           <p class="text-sm text-gray-600">
-            変換が完了しました。以下のリンクからダウンロードできます。
+            変換が完了しました。画像はGCS_BUCKET_IMAGEに保存されました。
           </p>
+          <!-- ダウンロードリンクは非表示にするが、JSで参照しているためDOMからは削除しない -->
           <a
             id="downloadLink"
             href="#"
+            style="display: none;"
             class="inline-block bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600"
           >
             ダウンロード
